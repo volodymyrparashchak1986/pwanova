@@ -1,0 +1,10 @@
+import { isSupabaseConfigured } from "@/lib/env"
+
+export function DemoBanner() {
+  if (isSupabaseConfigured) return null
+  return (
+    <div className="bg-accent px-4 py-1.5 text-center text-xs text-accent-foreground">
+      <span className="sm:hidden">Demo mode: sample data. Connect Supabase to enable accounts.</span><span className="hidden sm:inline">Demo mode: showing fabricated sample apps. Sign-in, ratings and reviews activate once Supabase is connected (see README).</span>
+    </div>
+  )
+}
