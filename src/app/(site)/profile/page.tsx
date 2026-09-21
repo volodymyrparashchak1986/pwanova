@@ -32,7 +32,7 @@ export default async function ProfilePage() {
       <div className="mt-8 flex flex-wrap gap-2">
         <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline" }), "rounded-full")}><LayoutDashboard className="size-4" />Dashboard</Link>
         {viewer.role === "admin" && <Link href="/admin" className={cn(buttonVariants({ variant: "outline" }), "rounded-full")}><ShieldAlert className="size-4" />Admin</Link>}
-        <form action="/auth/sign-out" method="post"><Button variant="ghost" className="rounded-full text-muted-foreground"><LogOut className="size-4" />Sign out</Button></form>
+        <form action="/auth/sign-out" method="post"><Button type="submit" variant="ghost" className="rounded-full text-muted-foreground"><LogOut className="size-4" />Sign out</Button></form>
         <span className="ml-auto"><ThemeToggle /></span>
       </div>
     </PageShell>

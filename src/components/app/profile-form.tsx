@@ -15,7 +15,7 @@ export function ProfileForm({ initial }: { initial: { displayName: string; bio: 
       <label className="block space-y-1.5 text-sm font-medium">Display name<Input required maxLength={80} value={v.displayName} onChange={(e) => setV({ ...v, displayName: e.target.value })} className="h-11 rounded-xl" /></label>
       <label className="block space-y-1.5 text-sm font-medium">Bio<Textarea maxLength={500} rows={3} value={v.bio} onChange={(e) => setV({ ...v, bio: e.target.value })} /></label>
       <label className="block space-y-1.5 text-sm font-medium">Website<Input type="url" placeholder="https://" value={v.website} onChange={(e) => setV({ ...v, website: e.target.value })} className="h-11 rounded-xl" /></label>
-      <Button disabled={pending}>Save profile</Button>
+      <Button type="submit" disabled={pending}>Save profile</Button>
     </form>
   )
 }

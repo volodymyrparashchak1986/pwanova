@@ -88,7 +88,7 @@ export function ShipForm({ userId }: { userId: string }) {
         <Field label="App URL" hint="We fetch your public page server-side to read its title, icon, manifest and headers. Nothing of yours is executed.">
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input type="text" inputMode="url" required placeholder="https://your-app.vercel.app" value={url} onChange={(e) => setUrl(e.target.value)} className="h-12 flex-1 rounded-xl px-4 text-base" />
-            <Button size="lg" disabled={analyzing || !url}>{analyzing ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}Analyze App</Button>
+            <Button type="submit" size="lg" disabled={analyzing || !url}>{analyzing ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}Analyze App</Button>
           </div>
         </Field>
       </form>
@@ -147,7 +147,7 @@ export function ShipForm({ userId }: { userId: string }) {
           </div>
 
           <div className="flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center">
-            <Button size="lg" className="rounded-full" disabled={submitting || uploading}>{submitting && <Loader2 className="size-4 animate-spin" />}Ship Your App</Button>
+            <Button type="submit" size="lg" className="rounded-full" disabled={submitting || uploading}>{submitting && <Loader2 className="size-4 animate-spin" />}Ship Your App</Button>
             <p className="text-xs text-muted-foreground">Your listing goes live immediately. Ownership starts unverified; verify your domain next to unlock developer replies and PWANova Verified.</p>
           </div>
         </form>

@@ -15,9 +15,10 @@ push("-- Demo domains use the reserved .example TLD, so the demo sites do not ex
 push("begin;")
 push()
 
-push("-- users (no credentials; cannot sign in) -------------------------------")
+push("-- users (no credentials: empty password hash, never confirmed; cannot sign in) --")
 for (const u of [...SEED_DEVELOPERS.map((d) => ({ id: d.id, username: d.username, name: d.displayName })), ...SEED_USERS.map((u) => ({ id: u.id, username: u.username, name: u.displayName }))]) {
-  push(`insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at) values (${q(u.id)}, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ${q(`${u.username}@demo.pwanova.invalid`)}, ${q(JSON.stringify({ user_name: u.username, full_name: u.name, is_demo: true }))}::jsonb, now(), now()) on conflict (id) do nothing;`)
+  // GoTrue scans the token columns into non-nullable strings, so they must be '' (not NULL) or the Auth admin API / dashboard user list breaks.
+  push(`insert into auth.users (id, instance_id, aud, role, email, encrypted_password, raw_app_meta_data, raw_user_meta_data, confirmation_token, recovery_token, email_change_token_new, email_change, email_change_token_current, phone_change, phone_change_token, reauthentication_token, email_change_confirm_status, created_at, updated_at) values (${q(u.id)}, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ${q(`${u.username}@demo.pwanova.invalid`)}, '', '{"provider":"email","providers":["email"]}'::jsonb, ${q(JSON.stringify({ user_name: u.username, full_name: u.name, is_demo: true }))}::jsonb, '', '', '', '', '', '', '', '', 0, now(), now()) on conflict (id) do nothing;`)
 }
 push()
 push("-- profiles (created by trigger; enrich) ---------------------------------")

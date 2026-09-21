@@ -13,7 +13,9 @@ export function ReviewForm({ appId, existing, defaultRating }: {
   appId: string; existing: { rating: number; title: string | null; body: string } | null; defaultRating: number | null
 }) {
   const [open, setOpen] = useState(false)
-  const [rating, setRating] = useState(existing?.rating ?? defaultRating ?? 0)
+  // stars the user picked inside this form; otherwise fall back to their saved rating (which can change via the RateBox)
+  const [picked, setPicked] = useState(existing?.rating ?? 0)
+  const rating = picked || defaultRating || 0
   const [title, setTitle] = useState(existing?.title ?? "")
   const [body, setBody] = useState(existing?.body ?? "")
   const [pending, start] = useTransition()
@@ -31,7 +33,7 @@ export function ReviewForm({ appId, existing, defaultRating }: {
     }}>
       <div className="flex gap-1" role="radiogroup" aria-label="Rating">
         {[1, 2, 3, 4, 5].map((n) => (
-          <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} stars`} onClick={() => setRating(n)}>
+          <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} stars`} onClick={() => setPicked(n)}>
             <Star className={cn("size-7", n <= rating ? "fill-star text-star" : "text-muted-foreground/40")} strokeWidth={1.5} />
           </button>
         ))}

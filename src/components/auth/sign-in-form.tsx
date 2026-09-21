@@ -41,7 +41,7 @@ export function SignInForm({ next }: { next: string }) {
       ) : (
         <form onSubmit={magic} className="space-y-3">
           <Input type="email" required placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" className="h-12 rounded-xl px-4 text-base" />
-          <Button size="lg" className="w-full" disabled={state === "loading"}>{state === "loading" ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}Email me a magic link</Button>
+          <Button type="submit" size="lg" className="w-full" disabled={state === "loading"}>{state === "loading" ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}Email me a magic link</Button>
         </form>
       )}
       {state === "error" && <p role="alert" className="text-sm text-destructive">{message}</p>}

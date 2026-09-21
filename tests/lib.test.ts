@@ -8,6 +8,7 @@ import { rankingScore } from "../src/lib/ranking"
 import { detectHost } from "../src/lib/analyzer-host"
 import { detectPlatform } from "../src/lib/platform"
 import { filterDemoApps, demo } from "../src/lib/data/demo"
+import { hasMetaToken, txtRecordMatches, wellKnownMatches } from "../src/lib/verification-utils"
 
 describe("URL validation", () => {
   const bad = [
@@ -98,5 +99,29 @@ describe("ranking + demo search", () => {
     assert.ok(filterDemoApps(apps, { verified: true }).every((a) => a.verificationStatus === "verified"))
     assert.ok(filterDemoApps(apps, { build: "v0" }).every((a) => a.buildTool === "v0"))
     assert.ok(filterDemoApps(apps, { host: "vercel" }).every((a) => a.hostingProvider === "vercel"))
+  })
+})
+
+describe("ownership verification helpers", () => {
+  const token = "c5e4e87857fb40e8a2af7e07cc354ba7"
+  it("finds the meta tag in either attribute order, any quoting or case", () => {
+    assert.ok(hasMetaToken(`<html><head><meta name="pwanova-verification" content="${token}"></head>`, token))
+    assert.ok(hasMetaToken(`<head><meta content='${token}' name='pwanova-verification' /></head>`, token))
+    assert.ok(hasMetaToken(`<HEAD><META NAME="PWANOVA-VERIFICATION" CONTENT="${token}"></HEAD>`, token))
+  })
+  it("rejects wrong tokens, other meta names and tokens outside <head> or inside comments", () => {
+    assert.ok(!hasMetaToken(`<head><meta name="pwanova-verification" content="deadbeef"></head>`, token))
+    assert.ok(!hasMetaToken(`<head><meta name="description" content="${token}"></head>`, token))
+    assert.ok(!hasMetaToken(`<head></head><body><meta name="pwanova-verification" content="${token}"></body>`, token))
+    assert.ok(!hasMetaToken(`<head><!-- <meta name="pwanova-verification" content="${token}"> --></head>`, token))
+  })
+  it("well-known file must contain exactly the token", () => {
+    assert.ok(wellKnownMatches(`${token}\n`, token))
+    assert.ok(!wellKnownMatches(`${token} extra`, token))
+    assert.ok(!wellKnownMatches("", token))
+  })
+  it("DNS TXT records are joined and matched exactly", () => {
+    assert.ok(txtRecordMatches([["v=spf1 -all"], [`pwanova-verification=${token.slice(0, 10)}`, token.slice(10)]], token))
+    assert.ok(!txtRecordMatches([[`pwanova-verification=${token}x`]], token))
   })
 })

@@ -1,6 +1,7 @@
 import "server-only"
 import { resolveTxt } from "node:dns/promises"
 import { safeFetch } from "@/lib/security/ssrf"
+import { hasMetaToken, txtRecordMatches, wellKnownMatches } from "@/lib/verification-utils"
 
 export type ClaimMethod = "meta_tag" | "well_known" | "dns_txt"
 
@@ -15,15 +16,13 @@ export async function verifyOwnership(appUrl: string, domain: string, token: str
   try {
     if (method === "meta_tag") {
       const res = await safeFetch(appUrl, { maxBytes: 600_000 })
-      const found = new RegExp(`<meta[^>]+name=["']pwanova-verification["'][^>]*content=["']${token}["']|<meta[^>]+content=["']${token}["'][^>]*name=["']pwanova-verification["']`, "i").test(res.body)
-      return found ? { ok: true } : { ok: false, error: "Meta tag not found on your home page yet. Deploy the change and try again." }
+      return hasMetaToken(res.body, token) ? { ok: true } : { ok: false, error: "Meta tag not found on your home page yet. Deploy the change and try again." }
     }
     if (method === "well_known") {
       const res = await safeFetch(new URL("/.well-known/pwanova-verification.txt", appUrl), { maxBytes: 2_000, accept: "text/plain" })
-      return res.status === 200 && res.body.trim() === token ? { ok: true } : { ok: false, error: "Verification file not found or its content does not match." }
+      return res.status === 200 && wellKnownMatches(res.body, token) ? { ok: true } : { ok: false, error: "Verification file not found or its content does not match." }
     }
-    const records = (await resolveTxt(`_pwanova.${domain}`)).map((r) => r.join(""))
-    return records.includes(`pwanova-verification=${token}`) ? { ok: true } : { ok: false, error: "TXT record not found yet. DNS changes can take a while to propagate." }
+    return txtRecordMatches(await resolveTxt(`_pwanova.${domain}`), token) ? { ok: true } : { ok: false, error: "TXT record not found yet. DNS changes can take a while to propagate." }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Verification failed." }
   }
