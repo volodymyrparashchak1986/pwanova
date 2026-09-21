@@ -149,7 +149,16 @@ Live (demo data, `noindex`): https://pwanova.vercel.app
 2. Add environment variables (Production + Preview): `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET` (any long random string), optionally `SUBMIT_REQUIRES_APPROVAL=true` and, at launch, `ALLOW_INDEXING=true`.
 3. Add your production URL to Supabase's redirect URLs (see above).
 4. `vercel.json` schedules `/api/cron/health` daily; Vercel sends `Authorization: Bearer $CRON_SECRET` automatically. It re-checks the 10 least-recently checked apps per run, updating quality checks, health status and verified status.
-5. Deploy (Git integration, or `vercel deploy --prod` from a linked folder; `.vercelignore` keeps local `.env*` files out of uploads). PWANova is itself an installable PWA (manifest, icons, service worker, offline page).
+5. Deploy. Either use Vercel's Git integration, or the bundled GitHub Actions job (useful when the repo owner is a different GitHub account than the Vercel account): after CI passes on `main`, `.github/workflows/ci.yml` runs `vercel deploy --prod`. Enable it once:
+   ```bash
+   # 1. create a token at vercel.com/account/tokens (scope: your team), then store it as a secret
+   gh secret set VERCEL_TOKEN
+   # 2. the project/org ids are in .vercel/project.json after `vercel link`
+   gh variable set VERCEL_ORG_ID --body team_xxx && gh variable set VERCEL_PROJECT_ID --body prj_xxx
+   # 3. switch the deploy job on
+   gh variable set VERCEL_DEPLOY --body true
+   ```
+   Manual deploys also work: `vercel deploy --prod` from a linked folder (`.vercelignore` keeps local `.env*` files out of uploads). PWANova is itself an installable PWA (manifest, icons, service worker, offline page).
 6. Set the Supabase Auth **Site URL** and **Redirect URLs** to your production origin (`supabase/config.toml` + `supabase config diff` to review, then `supabase config push`). Never run `config push` blindly: it applies immediately and overwrites remote settings with the local file.
 
 Set `SUBMIT_REQUIRES_APPROVAL=true` to hold new submissions as `pending` until an admin approves them in `/admin` (owners can still verify ownership of their pending app from the claim page).
