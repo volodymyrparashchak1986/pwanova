@@ -162,6 +162,17 @@ async function main() {
     expect(data?.length === 1, "new app is not visible")
   })
 
+  await check("approval mode: owner can read their pending app; the public and other users cannot", async () => {
+    ok(await admin.from("apps").update({ status: "pending" }).eq("id", appId), "set pending")
+    const own = await dev.client.from("apps").select("slug, status").eq("id", appId).maybeSingle()
+    expect(own.data?.status === "pending", "owner cannot read their own pending app")
+    const pubRow = await pub.from("apps_public").select("slug").eq("slug", slug)
+    expect((pubRow.data ?? []).length === 0, "pending app is visible publicly")
+    const others = await other.client.from("apps").select("slug").eq("id", appId)
+    expect((others.data ?? []).length === 0, "another user can read a pending app")
+    ok(await admin.from("apps").update({ status: "published" }).eq("id", appId), "restore published")
+  })
+
   // ------------------------------------------------------------------ claim
   console.log("\nClaim flow")
   await check("claim token is generated and visible only to its owner", async () => {

@@ -132,24 +132,28 @@ npm run lint          # eslint
 npm test              # 70 tests (see below)
 npm run build         # production build
 npm run validate      # all of the above
-npm run verify:supabase   # 35 live checks against the project in .env.local (see below)
+npm run verify:supabase   # 36 live checks against the project in .env.local (see below)
 ```
 
 `npm test` runs the **real migrations and seed** on an in-process Postgres ([PGlite](https://pglite.dev)) with the Supabase `auth`/role pieces stubbed (`tests/supabase-prelude.sql`), and checks: public reads, duplicate-rating prevention, review ownership, forged trust flags, helpful votes, developer-response permissions (verified owner only), favorites isolation, protected columns, self-promotion blocking, event write blocking, admin powers, rate-limit function privileges, SQL/TS ranking parity and "one 5.0 rating is not #1". Unit tests cover URL/SSRF validation, sanitisation, traffic classification, host and platform detection and search.
 
-`npm run verify:supabase` runs against your **real** Supabase project (needs `.env.local`). It creates throw-away users and rows, then deletes them. It checks the same rules as above through real Auth, PostgREST, RLS, triggers, RPCs and Storage (35 checks): forged trust flags, protected columns, claim tokens, ratings/reviews/helpful/favorites, developer responses, events and the analytics RPC, admin powers, Storage folder isolation and MIME limits, service-only functions, and that the Auth admin API can list users.
+`npm run verify:supabase` runs against your **real** Supabase project (needs `.env.local`). It creates throw-away users and rows, then deletes them. It checks the same rules as above through real Auth, PostgREST, RLS, triggers, RPCs and Storage (36 checks): forged trust flags, protected columns, claim tokens, ratings/reviews/helpful/favorites, developer responses, events and the analytics RPC, admin powers, Storage folder isolation and MIME limits, service-only functions, and that the Auth admin API can list users.
 
 **Not covered by automated tests:** real Google/GitHub/magic-link sign-in (the OAuth providers must be configured in your project first), and the *success* path of ownership verification against a domain you control (the token-matching helpers are unit-tested; the failure path was exercised live). Local Supabase via `supabase start` needs Docker.
 
 ## Deploy to Vercel
 
 1. Push the repo and import it in Vercel (framework: Next.js; no build overrides).
-2. Add environment variables (Production + Preview): `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET` (any long random string), optionally `SUBMIT_REQUIRES_APPROVAL=true`.
+2. Add environment variables (Production + Preview): `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET` (any long random string), optionally `SUBMIT_REQUIRES_APPROVAL=true` and, at launch, `ALLOW_INDEXING=true`.
 3. Add your production URL to Supabase's redirect URLs (see above).
 4. `vercel.json` schedules `/api/cron/health` daily; Vercel sends `Authorization: Bearer $CRON_SECRET` automatically. It re-checks the 10 least-recently checked apps per run, updating quality checks, health status and verified status.
 5. Deploy. PWANova is itself an installable PWA (manifest, icons, service worker, offline page).
 
-Set `SUBMIT_REQUIRES_APPROVAL=true` to hold new submissions as `pending` until an admin approves them in `/admin`.
+Set `SUBMIT_REQUIRES_APPROVAL=true` to hold new submissions as `pending` until an admin approves them in `/admin` (owners can still verify ownership of their pending app from the claim page).
+
+**Search engines:** the site is `noindex` and `robots.txt` disallows everything until you set `ALLOW_INDEXING=true`. Do that only after removing demo data (`supabase/unseed.sql`).
+
+`vercel.json` pins functions to `fra1` (Frankfurt) to sit next to a Frankfurt Supabase project. Change it to match your Supabase region.
 
 ## Roadmap hooks already in the schema
 

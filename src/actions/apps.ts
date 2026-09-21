@@ -30,7 +30,7 @@ const submitSchema = z.object({
 export type SubmitInput = z.infer<typeof submitSchema>
 
 /** Create a listing. Ownership starts as `claim_pending`; PWANova Verified requires verification. */
-export async function submitApp(input: SubmitInput): Promise<ActionResult<{ slug: string }> & { existingSlug?: string }> {
+export async function submitApp(input: SubmitInput): Promise<ActionResult<{ slug: string; status: "pending" | "published" }> & { existingSlug?: string }> {
   const parsed = submitSchema.safeParse(input)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
   const ctx = await authed("submit", { max: 5, windowSeconds: 3600 })
@@ -89,7 +89,7 @@ export async function submitApp(input: SubmitInput): Promise<ActionResult<{ slug
   await runAppChecks(app.id) // no-op without a service role key
   revalidatePath("/dashboard")
   revalidatePath("/explore")
-  return { ok: true, data: { slug: app.slug } }
+  return { ok: true, data: { slug: app.slug, status: requireApproval ? "pending" : "published" } }
 }
 
 /** Begin (or resume) an ownership claim for a listed app. */

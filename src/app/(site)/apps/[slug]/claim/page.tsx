@@ -1,12 +1,12 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ShieldCheck } from "lucide-react"
+import { Clock, ShieldCheck } from "lucide-react"
 import { AppIcon } from "@/components/app/app-icon"
 import { ClaimPanel } from "@/components/app/claim-panel"
 import { PageShell } from "@/components/app/section-header"
 import { buttonVariants } from "@/components/ui/button"
-import { getAppBySlug, getViewer } from "@/lib/data"
+import { getAppBySlug, getOwnedAppBySlug, getViewer } from "@/lib/data"
 import { isSupabaseConfigured } from "@/lib/env"
 import { createClient } from "@/lib/supabase/server"
 import { claimInstructions } from "@/lib/verification"
@@ -16,9 +16,15 @@ export const metadata: Metadata = { title: "Claim this app", robots: { index: fa
 
 export default async function ClaimPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const app = await getAppBySlug(slug)
-  if (!app) notFound()
   const viewer = await getViewer()
+
+  // Public listing first; owners can also reach the claim page of their own app while it is still pending review.
+  const published = await getAppBySlug(slug)
+  const owned = !published && viewer ? await getOwnedAppBySlug(slug, viewer.id) : null
+  const app = published
+    ? { id: published.id, slug: published.slug, name: published.name, domain: published.domain, iconUrl: published.iconUrl, ownershipStatus: published.ownershipStatus, ownerId: published.developer.id, status: "published" as string }
+    : owned
+  if (!app) notFound()
 
   let token: string | null = null
   if (viewer) {
@@ -26,11 +32,17 @@ export default async function ClaimPage({ params }: { params: Promise<{ slug: st
     const { data } = await sb.from("app_claims").select("token").eq("app_id", app.id).eq("user_id", viewer.id).maybeSingle()
     token = data?.token ?? null
   }
-  const mine = viewer && app.developer.id === viewer.id && app.ownershipStatus === "verified_owner"
+  const mine = viewer && app.ownerId === viewer.id && app.ownershipStatus === "verified_owner"
+  const isPublic = app.status === "published"
 
   return (
     <PageShell className="max-w-2xl">
       <div className="flex items-center gap-4"><AppIcon app={app} size="md" /><div><p className="text-sm text-muted-foreground">Claim</p><h1 className="text-3xl font-semibold tracking-tight">{app.name}</h1></div></div>
+
+      {!isPublic && (
+        <p className="mt-6 flex items-start gap-2 rounded-2xl bg-accent/60 p-4 text-sm"><Clock className="mt-0.5 size-4 shrink-0" />
+          <span>This listing is <strong>{app.status}</strong>: it becomes public after a moderator approves it. You can verify ownership now.</span></p>
+      )}
 
       <div className="mt-8 rounded-3xl border border-border bg-card p-6">
         {app.ownershipStatus === "verified_owner" ? (
@@ -50,7 +62,9 @@ export default async function ClaimPage({ params }: { params: Promise<{ slug: st
           </div>
         )}
       </div>
-      <p className="mt-4 text-center text-sm text-muted-foreground"><Link className="hover:underline" href={`/apps/${app.slug}`}>← Back to {app.name}</Link></p>
+      <p className="mt-4 text-center text-sm text-muted-foreground">
+        {isPublic ? <Link className="hover:underline" href={`/apps/${app.slug}`}>← Back to {app.name}</Link> : <Link className="hover:underline" href="/dashboard">← Back to dashboard</Link>}
+      </p>
     </PageShell>
   )
 }

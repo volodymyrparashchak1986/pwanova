@@ -197,6 +197,15 @@ export async function getMyApps(userId: string): Promise<MyApp[]> {
   return (data ?? []).map((r: Row) => ({ id: r.id, slug: r.slug, name: r.name, domain: r.domain, url: r.url, iconUrl: r.icon_url, status: r.status, ownershipStatus: r.ownership_status, verificationStatus: r.verification_status, category: r.category }))
 }
 
+export interface OwnedApp { id: string; slug: string; name: string; domain: string; iconUrl: string | null; status: string; ownershipStatus: AppView["ownershipStatus"]; ownerId: string }
+/** The caller's own app regardless of moderation status (RLS lets owners read their unpublished apps). */
+export async function getOwnedAppBySlug(slug: string, userId: string): Promise<OwnedApp | null> {
+  if (!isSupabaseConfigured) return null
+  const sb = await createClient()
+  const { data } = await sb.from("apps").select("id, slug, name, domain, icon_url, status, ownership_status, developer_id").eq("slug", slug).eq("developer_id", userId).maybeSingle()
+  return data ? { id: data.id, slug: data.slug, name: data.name, domain: data.domain, iconUrl: data.icon_url, status: data.status, ownershipStatus: data.ownership_status, ownerId: data.developer_id } : null
+}
+
 export async function getDashboard(): Promise<DashboardData> {
   if (!isSupabaseConfigured) return demoDashboard()
   const sb = await createClient()

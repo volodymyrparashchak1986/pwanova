@@ -77,7 +77,7 @@ export function ShipForm({ userId }: { userId: string }) {
     setError(null)
     startSubmit(async () => {
       const r = await submitApp({ url, name, tagline, description, category, buildTool: build, hostingProvider: host, launchSource: launch, launchUrl, iconUrl, screenshots: shots })
-      if (r.ok && r.data) { toast.success("Your app is listed. Verify ownership to earn PWANova Verified."); router.push(`/apps/${r.data.slug}/claim`) }
+      if (r.ok && r.data) { toast.success(r.data.status === "pending" ? "Submitted for review. Verify ownership while you wait." : "Your app is listed. Verify ownership to earn PWANova Verified."); router.push(`/apps/${r.data.slug}/claim`) }
       else if (!r.ok) setError({ text: r.error, existing: r.existingSlug })
     })
   }
