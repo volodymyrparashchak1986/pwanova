@@ -12,5 +12,10 @@ export async function GET(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: "No service role key" }, { status: 500 })
   const { data: apps } = await admin.from("apps").select("id").eq("status", "published").eq("is_demo", false).order("health_checked_at", { ascending: true, nullsFirst: true }).limit(10)
   const results = await Promise.allSettled((apps ?? []).map((a) => runAppChecks(a.id)))
-  return NextResponse.json({ checked: results.length })
+
+  // Raw event retention: this cron runs daily (see vercel.json), which is a fine cadence for a 180-day window.
+  const { data: purged, error: purgeError } = await admin.rpc("purge_old_events", { p_days: 180 })
+  if (purgeError) console.error("cron/health: purge_old_events failed", purgeError.message)
+
+  return NextResponse.json({ checked: results.length, eventsPurged: purgeError ? null : purged })
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { Clock, ShieldCheck } from "lucide-react"
+import { Clock, MessageSquareWarning, ShieldCheck } from "lucide-react"
 import { AppIcon } from "@/components/app/app-icon"
 import { ClaimPanel } from "@/components/app/claim-panel"
 import { PageShell } from "@/components/app/section-header"
@@ -14,23 +14,32 @@ import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = { title: "Claim this app", robots: { index: false } }
 
+const STATUS_COPY: Record<string, string> = {
+  pending: "This listing is awaiting moderation. It becomes public once approved. You can verify ownership now.",
+  rejected: "This submission was not approved.",
+  suspended: "This app is currently suspended.",
+}
+
 export default async function ClaimPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const viewer = await getViewer()
 
-  // Public listing first; owners can also reach the claim page of their own app while it is still pending review.
+  // Public listing first; owners can also reach the claim page of their own app while it is awaiting
+  // moderation, was rejected, or is suspended (getOwnedAppBySlug is scoped to developer_id = viewer.id).
   const published = await getAppBySlug(slug)
   const owned = !published && viewer ? await getOwnedAppBySlug(slug, viewer.id) : null
   const app = published
-    ? { id: published.id, slug: published.slug, name: published.name, domain: published.domain, iconUrl: published.iconUrl, ownershipStatus: published.ownershipStatus, ownerId: published.developer.id, status: "published" as string }
+    ? { id: published.id, slug: published.slug, name: published.name, domain: published.domain, iconUrl: published.iconUrl, ownershipStatus: published.ownershipStatus, ownerId: published.developer.id, status: "published" as string, moderationNote: null as string | null }
     : owned
   if (!app) notFound()
 
   let token: string | null = null
+  let expiresAt: string | null = null
   if (viewer) {
     const sb = await createClient()
-    const { data } = await sb.from("app_claims").select("token").eq("app_id", app.id).eq("user_id", viewer.id).maybeSingle()
+    const { data } = await sb.from("app_claims").select("token, expires_at").eq("app_id", app.id).eq("user_id", viewer.id).maybeSingle()
     token = data?.token ?? null
+    expiresAt = data?.expires_at ?? null
   }
   const mine = viewer && app.ownerId === viewer.id && app.ownershipStatus === "verified_owner"
   const isPublic = app.status === "published"
@@ -41,7 +50,12 @@ export default async function ClaimPage({ params }: { params: Promise<{ slug: st
 
       {!isPublic && (
         <p className="mt-6 flex items-start gap-2 rounded-2xl bg-accent/60 p-4 text-sm"><Clock className="mt-0.5 size-4 shrink-0" />
-          <span>This listing is <strong>{app.status}</strong>: it becomes public after a moderator approves it. You can verify ownership now.</span></p>
+          <span><strong className="capitalize">{app.status}.</strong> {STATUS_COPY[app.status] ?? "This listing is not public yet."}</span></p>
+      )}
+      {app.moderationNote && (
+        <p className="mt-3 flex items-start gap-2 rounded-2xl border border-border bg-card p-4 text-sm">
+          <MessageSquareWarning className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <span><strong>Moderator note:</strong> {app.moderationNote}</span></p>
       )}
 
       <div className="mt-8 rounded-3xl border border-border bg-card p-6">
@@ -58,7 +72,7 @@ export default async function ClaimPage({ params }: { params: Promise<{ slug: st
           <div className="space-y-5">
             <div><h2 className="text-lg font-semibold">Prove you own {app.domain}</h2>
               <p className="mt-1 text-sm text-muted-foreground">Choose one method. Once verified you become the verified owner and PWANova runs its quality checks for the PWANova Verified badge.</p></div>
-            <ClaimPanel appId={app.id} hasClaim={Boolean(token)} instructions={token ? claimInstructions(token, app.domain) : null} />
+            <ClaimPanel appId={app.id} hasClaim={Boolean(token)} instructions={token ? claimInstructions(token, app.domain) : null} expiresAt={expiresAt} />
           </div>
         )}
       </div>

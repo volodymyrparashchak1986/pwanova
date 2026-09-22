@@ -50,7 +50,9 @@ export default async function AppPage({ params, searchParams }: Props) {
   const canRespond = isOwner && app.ownershipStatus === "verified_owner"
   const myReview = viewer ? reviews.find((r) => r.userId === viewer.id) ?? null : null
 
-  const ld = {
+  // Demo/fabricated apps never emit AggregateRating (or any) structured data: a crawler that ignores
+  // this page's noindex must still never see a fake app presented as a real, ratable product.
+  const ld = app.isDemo ? null : {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     name: app.name,
@@ -65,7 +67,7 @@ export default async function AppPage({ params, searchParams }: Props) {
 
   return (
     <PageShell className="max-w-4xl">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(ld) }} />
+      {ld && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(ld) }} />}
       <ViewTracker appId={app.id} from={from} />
 
       <header className="flex flex-col gap-6 sm:flex-row sm:items-start">
@@ -89,7 +91,7 @@ export default async function AppPage({ params, searchParams }: Props) {
             <Stars value={app.rating} size={16} />
             <span className="text-sm text-muted-foreground">{formatCount(app.ratingsCount)} {app.ratingsCount === 1 ? "rating" : "ratings"}</span>
           </div>
-          <div className="mt-5 flex justify-center sm:justify-start">
+          <div id="install" className="mt-5 flex scroll-mt-20 justify-center sm:justify-start">
             <AppActions app={app} signedIn={Boolean(viewer)} saved={state.favorited} from={from} />
           </div>
         </div>
@@ -124,13 +126,16 @@ export default async function AppPage({ params, searchParams }: Props) {
 
       <section className="mt-10"><QualityPanel app={app} /></section>
 
-      <section className="mt-12" id="reviews" aria-labelledby="ratings-h">
+      <section className="mt-12 scroll-mt-20" id="reviews" aria-labelledby="ratings-h">
         <h2 id="ratings-h" className="text-2xl font-semibold tracking-tight">Ratings &amp; Reviews</h2>
         <div className="mt-5 grid gap-6 rounded-3xl border border-border bg-card p-5 md:grid-cols-2 md:p-6">
           <RatingSummary data={breakdown} />
           <div className="flex flex-col justify-center gap-4 md:border-l md:border-border md:pl-6">
             <RateBox appId={app.id} slug={app.slug} signedIn={Boolean(viewer)} isOwner={isOwner} initial={state.myRating} />
-            {viewer && !isOwner && <ReviewForm key={myReview?.id ?? "new"} appId={app.id} defaultRating={state.myRating} existing={myReview ? { rating: myReview.rating, title: myReview.title, body: myReview.body } : null} />}
+            {!isOwner && (
+              <ReviewForm key={myReview?.id ?? "new"} appId={app.id} slug={app.slug} signedIn={Boolean(viewer)}
+                defaultRating={state.myRating} existing={myReview ? { rating: myReview.rating, title: myReview.title, body: myReview.body } : null} />
+            )}
           </div>
         </div>
         <div className="mt-5 space-y-3">

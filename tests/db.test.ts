@@ -273,6 +273,123 @@ describe("developer dashboard", () => {
   })
 })
 
+describe("self rating/review ban (DB-level, defence in depth)", () => {
+  it("an app's own developer cannot rate or review it, verified or not", async () => {
+    await as(ids.oak, async () => { // oak owns mealcraft, claim_pending (not yet verified)
+      await assert.rejects(q(`insert into public.ratings (app_id, user_id, rating) values ('${ids.mealcraft}', '${ids.oak}', 5)`), /cannot rate or review their own app/)
+      await assert.rejects(q(`insert into public.reviews (app_id, user_id, rating, body) values ('${ids.mealcraft}', '${ids.oak}', 5, 'My own app is amazing, 5 stars!')`), /cannot rate or review their own app/)
+    })
+    await as(ids.novalabs, async () => { // novalabs owns metro-fit, verified_owner
+      await assert.rejects(q(`insert into public.ratings (app_id, user_id, rating) values ('${ids.metroFit}', '${ids.novalabs}', 5)`), /cannot rate or review their own app/)
+    })
+  })
+})
+
+describe("app status transitions (approval-mode self-approve bug, fixed)", () => {
+  const appId = "60000000-0000-4000-8000-000000000001"
+  it("owner cannot self-publish a pending or rejected submission, but can still hide/unhide a published one", async () => {
+    await as(ids.rater1, async () => {
+      await q(`insert into public.apps (id, developer_id, name, slug, url, domain, status) values ('${appId}', '${ids.rater1}', 'Hardening Test', 'hardening-test', 'https://hardening-test.example', 'hardening-test.example', 'pending')`)
+      await q(`update public.apps set status = 'published' where id = '${appId}'`)
+    })
+    assert.equal((await q<{ status: string }>(`select status from public.apps where id = '${appId}'`))[0].status, "pending", "pending -> published must be blocked for a non-admin")
+
+    await q(`update public.apps set status = 'rejected', moderation_note = 'Broken checkout link' where id = '${appId}'`) // admin action (direct SQL bypasses RLS as postgres, mirrors is_service_role())
+    await as(ids.rater1, async () => { await q(`update public.apps set status = 'published' where id = '${appId}'`) })
+    assert.equal((await q<{ status: string }>(`select status from public.apps where id = '${appId}'`))[0].status, "rejected", "rejected -> published must be blocked for a non-admin")
+
+    await q(`update public.apps set status = 'published', moderation_note = null where id = '${appId}'`)
+    await as(ids.rater1, async () => {
+      await q(`update public.apps set status = 'hidden' where id = '${appId}'`)
+      await q(`update public.apps set status = 'published' where id = '${appId}'`)
+    })
+    assert.equal((await q<{ status: string }>(`select status from public.apps where id = '${appId}'`))[0].status, "published", "the legitimate hide <-> published toggle must still work")
+  })
+})
+
+describe("atomic ownership assignment + re-verification on domain change", () => {
+  it("claim_app_ownership refuses to replace an existing verified owner", async () => {
+    const claimId = "70000000-0000-4000-8000-000000000001"
+    await q(`insert into public.app_claims (id, app_id, user_id) values ('${claimId}', '${ids.metroFit}', '${ids.rater1}')`)
+    const [{ won }] = await q<{ won: boolean }>(`select public.claim_app_ownership('${ids.metroFit}', '${ids.rater1}', '${claimId}') won`)
+    assert.equal(won, false)
+    assert.equal((await q<{ developer_id: string }>(`select developer_id from public.apps where id = '${ids.metroFit}'`))[0].developer_id, ids.novalabs, "owner must not change")
+  })
+  it("two concurrent-looking claims on the same unclaimed app: only the first wins", async () => {
+    const appId = "60000000-0000-4000-8000-000000000002"
+    const claimA = "70000000-0000-4000-8000-000000000002"
+    const claimB = "70000000-0000-4000-8000-000000000003"
+    await q(`insert into public.apps (id, developer_id, name, slug, url, domain) values ('${appId}', '${ids.rater1}', 'Race App', 'race-app', 'https://race-app.example', 'race-app.example')`)
+    await q(`insert into public.app_claims (id, app_id, user_id) values ('${claimA}', '${appId}', '${ids.rater1}'), ('${claimB}', '${appId}', '${ids.rater2}')`)
+    const [{ won: wonA }] = await q<{ won: boolean }>(`select public.claim_app_ownership('${appId}', '${ids.rater1}', '${claimA}') won`)
+    const [{ won: wonB }] = await q<{ won: boolean }>(`select public.claim_app_ownership('${appId}', '${ids.rater2}', '${claimB}') won`)
+    assert.equal(wonA, true)
+    assert.equal(wonB, false, "second caller must lose once ownership_status is verified_owner")
+    const [app] = await q<{ developer_id: string; ownership_status: string }>(`select developer_id, ownership_status from public.apps where id = '${appId}'`)
+    assert.deepEqual(app, { developer_id: ids.rater1, ownership_status: "verified_owner" })
+    const claims = await q<{ id: string; status: string }>(`select id, status from public.app_claims where app_id = '${appId}' order by id`)
+    assert.deepEqual(claims, [{ id: claimA, status: "verified" }, { id: claimB, status: "expired" }])
+  })
+  it("changing an app's domain or url resets ownership and verification back to unverified", async () => {
+    const appId = "60000000-0000-4000-8000-000000000003"
+    await q(`insert into public.apps (id, developer_id, name, slug, url, domain, ownership_status, verification_status) values ('${appId}', '${ids.rater1}', 'Movable App', 'movable-app', 'https://movable-app.example', 'movable-app.example', 'verified_owner', 'verified')`)
+    await q(`update public.apps set domain = 'movable-app-2.example', url = 'https://movable-app-2.example' where id = '${appId}'`)
+    const [a] = await q<{ ownership_status: string; verification_status: string }>(`select ownership_status, verification_status from public.apps where id = '${appId}'`)
+    assert.deepEqual(a, { ownership_status: "claim_pending", verification_status: "unverified" })
+  })
+})
+
+describe("claims RLS: verifying your own app while it awaits moderation", () => {
+  it("the developer of a pending app can start a claim on it; a stranger cannot", async () => {
+    const appId = "60000000-0000-4000-8000-000000000004"
+    await as(ids.rater1, async () => {
+      await q(`insert into public.apps (id, developer_id, name, slug, url, domain, status) values ('${appId}', '${ids.rater1}', 'Pending Owner App', 'pending-owner-app', 'https://pending-owner-app.example', 'pending-owner-app.example', 'pending')`)
+      await q(`insert into public.app_claims (app_id, user_id) values ('${appId}', '${ids.rater1}')`)
+    })
+    await as(ids.rater2, async () => {
+      await assert.rejects(q(`insert into public.app_claims (app_id, user_id) values ('${appId}', '${ids.rater2}')`), /row-level security/)
+    })
+  })
+})
+
+describe("admin audit log", () => {
+  it("is admin-only, append-only, and self-attributed", async () => {
+    await q(`update public.profiles set role = 'admin' where id = '${ids.marina}'`)
+    await as(ids.marina, async () => {
+      await q(`insert into public.admin_actions (admin_id, action, target_type, target_id, reason) values ('${ids.marina}', 'suspend', 'app', '${ids.mealcraft}', 'test')`)
+      await assert.rejects(q(`insert into public.admin_actions (admin_id, action, target_type, target_id) values ('${ids.rater1}', 'suspend', 'app', '${ids.mealcraft}')`), /row-level security/, "cannot log an action as someone else")
+    })
+    await as(ids.rater1, async () => {
+      await assert.rejects(q(`insert into public.admin_actions (admin_id, action, target_type, target_id) values ('${ids.rater1}', 'suspend', 'app', '${ids.mealcraft}')`), /row-level security/)
+      assert.equal((await q("select 1 from public.admin_actions limit 1")).length, 0, "non-admins cannot read the log")
+    })
+    await as(ids.marina, async () => {
+      assert.ok((await q("select 1 from public.admin_actions limit 1")).length, "admins can read the log")
+      // No UPDATE/DELETE policy exists on admin_actions at all, so with RLS enabled the statement
+      // matches (and changes) zero rows rather than throwing -- that's still a real append-only
+      // guarantee, just Postgres's normal "no applicable policy" behaviour instead of an exception.
+      await q("update public.admin_actions set reason = 'edited' where reason = 'test'")
+    })
+    assert.equal((await q<{ reason: string }>(`select reason from public.admin_actions where target_id = '${ids.mealcraft}' and action = 'suspend'`))[0].reason, "test", "the log is append-only, even for admins")
+    await q(`update public.profiles set role = 'developer' where id = '${ids.marina}'`)
+  })
+})
+
+describe("raw event retention", () => {
+  it("purge_old_events removes only rows past the window", async () => {
+    await as("service", async () => {
+      await q(`insert into public.app_events (app_id, event_type, created_at) values ('${ids.metroFit}', 'view', now() - interval '300 days')`)
+      await q(`insert into public.app_events (app_id, event_type, created_at) values ('${ids.metroFit}', 'view', now() - interval '1 day')`)
+      const before = (await q<{ n: string }>(`select count(*) n from public.app_events where created_at < now() - interval '200 days'`))[0].n
+      assert.ok(Number(before) > 0)
+      await q("select public.purge_old_events(180)")
+      const after = (await q<{ n: string }>(`select count(*) n from public.app_events where created_at < now() - interval '200 days'`))[0].n
+      assert.equal(Number(after), 0)
+      assert.ok(Number((await q<{ n: string }>(`select count(*) n from public.app_events where app_id = '${ids.metroFit}' and created_at > now() - interval '2 days'`))[0].n) > 0, "recent rows survive")
+    })
+  })
+})
+
 describe("ranking", () => {
   it("SQL ranking_score matches the TypeScript mirror", async () => {
     const { rankingScore } = await import("../src/lib/ranking")

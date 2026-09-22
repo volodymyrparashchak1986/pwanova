@@ -21,7 +21,7 @@ export default async function DashboardPage() {
   const data = await getDashboard()
   const apps = viewer
     ? await getMyApps(viewer.id)
-    : demo().apps.filter((a) => a.developer.username === "novalabs").map((a) => ({ id: a.id, slug: a.slug, name: a.name, domain: a.domain, url: a.url, iconUrl: null, status: a.status, ownershipStatus: a.ownershipStatus, verificationStatus: a.verificationStatus, category: a.category }))
+    : demo().apps.filter((a) => a.developer.username === "novalabs").map((a) => ({ id: a.id, slug: a.slug, name: a.name, domain: a.domain, url: a.url, iconUrl: null, status: a.status, ownershipStatus: a.ownershipStatus, verificationStatus: a.verificationStatus, category: a.category, moderationNote: null }))
   const t = data.totals
   const tiles: [string, string, string?][] = [
     ["Views", formatCount(t.views)], ["Opens", formatCount(t.opens)], ["Install actions", formatCount(t.installActions), "Clicks on Install. Not confirmed installs."],
@@ -42,9 +42,10 @@ export default async function DashboardPage() {
             {apps.map((a) => (
               <li key={a.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5">
                 <AppIcon app={a} size="sm" />
-                <div className="min-w-0 flex-1"><Link href={`/apps/${a.slug}`} className="block truncate font-semibold hover:underline">{a.name}</Link>
+                <div className="min-w-0 flex-1"><Link href={a.status === "published" ? `/apps/${a.slug}` : `/apps/${a.slug}/claim`} className="block truncate font-semibold hover:underline">{a.name}</Link>
                   <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground"><span className="capitalize">{a.status}</span>
-                    {a.verificationStatus === "verified" ? <span className="inline-flex items-center gap-1 text-brand"><ShieldCheck className="size-3" />Verified</span> : null}</p></div>
+                    {a.verificationStatus === "verified" ? <span className="inline-flex items-center gap-1 text-brand"><ShieldCheck className="size-3" />Verified</span> : null}</p>
+                  {a.moderationNote && <p className="mt-0.5 truncate text-xs text-muted-foreground">Note: {a.moderationNote}</p>}</div>
                 {a.ownershipStatus !== "verified_owner" && <Link href={`/apps/${a.slug}/claim`} className={cn(buttonVariants({ size: "sm", variant: "outline" }), "rounded-full")}><AlertTriangle className="size-3.5" />Verify ownership</Link>}
               </li>
             ))}

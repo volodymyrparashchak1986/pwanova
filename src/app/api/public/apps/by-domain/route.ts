@@ -19,19 +19,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Provide a valid ?domain=example.com" }, { status: 400, headers: CORS })
   }
   const app = await getAppByDomain(domain)
+  // Suspended/hidden/pending/rejected apps never leak here: getAppByDomain reads apps_public, which
+  // only ever contains status = 'published' (see supabase/migrations/20260101000200_views.sql).
   if (!app) return NextResponse.json({ error: "App not found" }, { status: 404, headers: { ...CORS, "cache-control": "public, s-maxage=60" } })
   return NextResponse.json({
+    id: app.id,
     name: app.name,
     slug: app.slug,
-    rating: app.rating,
+    rating: app.ratingsCount ? app.rating : null, // null, not 0 — "no ratings yet" is not the same as a 0-star average
     ratingsCount: app.ratingsCount,
     reviewsCount: app.reviewsCount,
     verified: app.verificationStatus === "verified",
     installable: app.isInstallable,
     pwa: app.isPwa,
     host: labelFor.host(app.hostingProvider),
+    checks: app.checks ? {
+      reachable: app.checks.reachable, httpsOk: app.checks.httpsOk, manifestOk: app.checks.manifestOk,
+      serviceWorkerOk: app.checks.serviceWorkerOk, installable: app.checks.installable,
+      offlineSupport: app.checks.offlineSupport, pushSupport: app.checks.pushSupport, // null = not checked / unknown, never a guessed value
+    } : null,
+    lastCheckedAt: app.checks?.lastCheckedAt ?? null,
     developer: app.developer.username ? { username: app.developer.username, name: app.developer.name, verifiedOwner: app.ownershipStatus === "verified_owner" } : null,
-    demo: app.isDemo,
+    demo: app.isDemo, // true only if SHOW_DEMO_DATA=true on this deployment let a fabricated app through at all
     url: `${siteUrl}/apps/${app.slug}`,
+    installGuidanceUrl: `${siteUrl}/apps/${app.slug}#install`,
+    badgeUrl: `${siteUrl}/api/badge/${app.slug}`,
+    embedUrl: `${siteUrl}/embed/app/${app.slug}`,
   }, { headers: { ...CORS, "cache-control": "public, s-maxage=300, stale-while-revalidate=600" } })
 }
