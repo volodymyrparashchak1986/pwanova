@@ -1,4 +1,6 @@
-# Closed-beta release checklist — 2026-09-22
+# Closed-beta release checklist — 2026-09-23
+
+Production was explicitly authorized and deployed on 2026-09-23 (Europe/Berlin). See [production-release.md](production-release.md) for the release evidence. The remaining unchecked pilot gates below still apply.
 
 Verified locally on 2026-09-23: typecheck, lint, 111 Node/PGlite tests, 39 Auth/PostgREST/Storage checks, 7 browser E2E scenarios, clean Postgres migration, seeded-schema upgrade and production build. Full evidence and limitations are in beta-audit.md. These results do not check off the production gates below.
 
@@ -8,9 +10,9 @@ This checklist refers only to branch `codex/closed-beta-verification`. Earlier p
 
 - [ ] Review and approve the PR; no automatic merge or production deployment.
 - [ ] Back up the target database and test the migration on an explicitly authorized staging copy. This task changed only local databases.
-- [ ] Check canonical URL collisions before creating the unique expression index. The migration fails rather than deleting duplicates. Resolve ownership ambiguities administratively.
-- [ ] Apply `20260922213419_closed_beta_integrity.sql` only after separate authorization. Coordinate application release: the old unchecked claim RPC signature is intentionally removed.
-- [ ] Set real environment values; `DEMO_MODE=false`, `SHOW_DEMO_DATA=false`, `ALLOW_INDEXING=false`. Never seed production.
+- [x] Check canonical URL collisions before creating the unique expression index. The migration fails rather than deleting duplicates. Resolve ownership ambiguities administratively.
+- [x] Apply `20260922222344_closed_beta_integrity.sql` after explicit production authorization. Coordinate application release: the old unchecked claim RPC signature is intentionally removed.
+- [x] Set real environment values; `DEMO_MODE=false`, `SHOW_DEMO_DATA=false`, `ALLOW_INDEXING=false`. Never seed production.
 - [ ] Provision admin explicitly and verify its account; the first signup never becomes admin.
 - [ ] Test real email magic-link delivery and allowed callback URLs. OAuth buttons remain hidden until enabled and verified.
 - [ ] Publish a real verification file on an app origin you control; test success, wrong contents, expiry, restart and attempted redirect. Synthetic transport tests do not prove a real public deployment.

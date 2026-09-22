@@ -41,7 +41,7 @@
 
 ## Миграция и сохранность
 
-Новая миграция: `supabase/migrations/20260922213419_closed_beta_integrity.sql`. Предыдущие миграции не изменены и не удалены.
+Новая миграция: `supabase/migrations/20260922222344_closed_beta_integrity.sql`. Предыдущие миграции не изменены и не удалены.
 
 Она добавляет защищённые метаданные ownership/moderation, URL-bound claims, nullable review rating, скрытие review, partner membership/demo flag, атомарные RPC и обновлённые агрегаты. Reviews и canonical ratings сохраняются; рассогласованные звёзды приводятся к canonical rating. Непроверенные старые технические флаги сохраняются в legacy evidence. Вместо UNIQUE(domain) используется уникальный canonical URL. При конфликте существующих identities миграция останавливается — приложения не сливаются и не удаляются. Небезопасная старая сигнатура claim RPC удалена: код и миграцию нужно выпускать согласованно.
 
