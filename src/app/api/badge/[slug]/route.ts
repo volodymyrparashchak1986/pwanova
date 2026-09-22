@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { getAppBySlug } from "@/lib/data"
 import { badgeNotFoundSvg, badgeSvg } from "@/lib/badge-svg"
+import { exampleApp, isExampleSlug } from "@/lib/partner-example"
 import { clientIp, rateLimit } from "@/lib/security/rate-limit"
 
 /**
@@ -18,7 +19,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   if (!(await rateLimit(`badge:${await clientIp()}`, 120, 60))) {
     return new NextResponse(badgeNotFoundSvg(dark), { status: 429, headers: { ...CORS, "content-type": "image/svg+xml", "cache-control": "no-store" } })
   }
-  const app = await getAppBySlug(slug)
+  // `_example` is the Partner Kit's static, clearly-fictional sample (see src/lib/partner-example.ts)
+  const app = isExampleSlug(slug) ? exampleApp : await getAppBySlug(slug)
   if (!app || app.status !== "published") {
     return new NextResponse(badgeNotFoundSvg(dark), { status: 404, headers: { ...CORS, "content-type": "image/svg+xml", "cache-control": "public, s-maxage=60" } })
   }

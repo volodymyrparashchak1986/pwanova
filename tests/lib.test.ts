@@ -157,3 +157,12 @@ describe("partner badge SVG", () => {
     assert.ok(badgeNotFoundSvg(true).includes("Not listed on PWANova"))
   })
 })
+
+describe("partner kit example listing", () => {
+  it("uses a slug no real app can ever have (so it can't collide with or be claimed as a listing)", async () => {
+    const { EXAMPLE_SLUG, exampleApp } = await import("../src/lib/partner-example")
+    assert.ok(!/^[a-z0-9-]{2,80}$/.test(EXAMPLE_SLUG), "must fail the apps.slug CHECK constraint")
+    assert.equal(exampleApp.isDemo, true, "must always render as demo data")
+    assert.equal(exampleApp.developer.id, null, "must not point at a real developer")
+  })
+})

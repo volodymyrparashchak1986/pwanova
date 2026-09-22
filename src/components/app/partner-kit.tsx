@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import { Copy } from "lucide-react"
 import { toast } from "sonner"
 import { siteUrl } from "@/lib/env"
+import { isExampleSlug } from "@/lib/partner-example"
 
 function CopyBlock({ code }: { code: string }) {
   return (
@@ -20,7 +21,8 @@ export function PartnerKit({ apps, refCode }: { apps: { slug: string; name: stri
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [format, setFormat] = useState<"iframe" | "image">("iframe")
   const ref = refCode ? `?ref=${refCode}` : ""
-  const canonical = `${siteUrl}/apps/${slug}${ref}`
+  // the fictional sample has no app page of its own; its badge links back to the worked example
+  const canonical = isExampleSlug(slug) ? `${siteUrl}/partners/demo${ref}` : `${siteUrl}/apps/${slug}${ref}`
 
   const snippet = useMemo(() => {
     if (format === "iframe") {

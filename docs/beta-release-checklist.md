@@ -14,8 +14,8 @@ Use this right before inviting the pilot group (`docs/beta-pilot.md`) and again 
 
 - [x] New migration `supabase/migrations/20260201000000_beta_hardening.sql` is additive only — no existing migration edited, no data deleted, no destructive `ALTER`/`DROP` of existing columns.
 - [x] Applies cleanly on top of the existing four migrations, replayed from scratch (`npm test`'s `before()` hook does exactly this every run).
-- [ ] **Owner:** apply it to the real project — `supabase db push` (see `README.md` → "Apply the schema") — after backing up if the project has any real (non-demo) data.
-- [ ] **Owner:** run `npm run verify:supabase` against that project afterwards (34 live checks; not run this session — see `docs/beta-audit.md`, "Not verified").
+- [x] Applied to the real project on 2026-09-22 (`supabase db push`, one migration, clean).
+- [x] `npm run verify:supabase` run against that project right after: 36/36 passing.
 
 ## Security (done, this session, re-verify live per above)
 
@@ -25,7 +25,7 @@ Use this right before inviting the pilot group (`docs/beta-pilot.md`) and again 
 - [x] SSRF protections unchanged and still in place (`src/lib/security/ssrf.ts`): scheme/port allow-list, private/loopback/link-local/CGNAT blocked for IPv4 and IPv6, DNS re-checked inside the socket lookup, redirects re-validated per hop, size/time capped, no cookies/credentials forwarded.
 - [x] Rate limiting is DB-backed (shared across serverless instances) whenever `SUPABASE_SERVICE_ROLE_KEY` is set, which every real deployment needs anyway.
 - [x] The install-dialog bug that could install PWANova instead of a listed app is fixed (`docs/beta-audit.md`, P0-3).
-- [ ] **Owner:** real Google/GitHub OAuth sign-in end to end (needs the provider apps configured — see `README.md`).
+- [x] GitHub OAuth provider configured on the project and confirmed live (`/auth/v1/authorize?provider=github` redirects to GitHub with the real client id); the owner signed in end to end via magic link, which exercises the same `/auth/callback` exchange. **Owner:** Google is not configured (needs a Google Cloud OAuth client); optional for the pilot.
 
 ## Data integrity (done, this session)
 
@@ -33,7 +33,7 @@ Use this right before inviting the pilot group (`docs/beta-pilot.md`) and again 
 - [x] Fabricated demo data excluded from every public listing, search, ranking, sitemap and the partner API unless `SHOW_DEMO_DATA=true` (new this branch; default is `false`).
 - [x] Demo apps never emit `aggregateRating` (or any) JSON-LD structured data (new this branch).
 - [x] Ranking cannot be won by a single 5-star rating (confidence-weighted formula, tested both in SQL and against the TypeScript mirror).
-- [ ] **Owner:** if this project's Supabase database has ever had `supabase/seed.sql` run against it and real users might now be present, run `supabase/unseed.sql` before launch.
+- [x] Demo data removed from the live project on 2026-09-22 (all `is_demo` apps, the seeded demo partner rows and the 70 fabricated auth users). The Partner Kit's worked example no longer needs a database row — it renders a static in-code sample (`src/lib/partner-example.ts`, slug `_example`, always marked "demo data").
 
 ## Moderation (done, this session)
 
@@ -41,7 +41,7 @@ Use this right before inviting the pilot group (`docs/beta-pilot.md`) and again 
 - [x] Suspending/hiding/rejecting an app removes it from the catalog, search, sitemap, the public API, the iframe embed and the SVG badge alike (all read `apps_public`, which filters to `status = 'published'`).
 - [x] Every admin action is logged (`admin_actions`, append-only — no UPDATE/DELETE policy exists on it, including for admins).
 - [x] Disputed-ownership reassignment is a separate, logged, reasoned action — not something the normal Claim App flow can ever do.
-- [ ] **Owner:** decide who else (besides you) gets `role = 'admin'` before the pilot starts.
+- [x] The owner's account (`volodymyrparashchak1986`) is the only admin. **Owner:** name anyone else who should be, before the pilot starts.
 
 ## Partner Kit (done, this session, in demo mode; live-checked separately by owner)
 
@@ -65,9 +65,9 @@ Use this right before inviting the pilot group (`docs/beta-pilot.md`) and again 
 
 ## Launch gating (unchanged from before this branch, confirm still set correctly)
 
-- [ ] **Owner:** `ALLOW_INDEXING=false` until you're actually ready for search engines (confirm current value on the deployment).
-- [ ] **Owner:** `SHOW_DEMO_DATA=false` (new flag this branch — confirm it's set, since it doesn't exist in older deployments' env until you add it).
-- [ ] **Owner:** `SUBMIT_REQUIRES_APPROVAL` — recommended `true` for the pilot.
+- [x] `ALLOW_INDEXING=false` — confirmed on the production deployment (2026-09-22).
+- [x] `SHOW_DEMO_DATA=false` — set explicitly on the production deployment (2026-09-22).
+- [x] `SUBMIT_REQUIRES_APPROVAL=true` — set on the production deployment for the pilot (2026-09-22): every new submission now waits in `/admin`'s pending queue.
 
 ## This session's process constraints (for the record)
 

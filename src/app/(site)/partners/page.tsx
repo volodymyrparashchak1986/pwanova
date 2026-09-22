@@ -5,6 +5,7 @@ import { PageShell } from "@/components/app/section-header"
 import { PartnerKit } from "@/components/app/partner-kit"
 import { buttonVariants } from "@/components/ui/button"
 import { getApps } from "@/lib/data"
+import { exampleApp } from "@/lib/partner-example"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = { title: "Launch board partners", description: "You help apps launch. PWANova helps them keep growing. Add ratings, verification and install guidance to your launch platform." }
@@ -41,9 +42,8 @@ export default async function PartnersPage() {
 
       <section className="mt-16">
         <h2 className="text-3xl font-semibold tracking-tight">Try it</h2>
-        <p className="mt-2 text-muted-foreground">Pick a listing and a format. Copy the snippet straight into your page.</p>
-        {apps.length ? <div className="mt-5"><PartnerKit apps={apps.map((a) => ({ slug: a.slug, name: a.name }))} /></div>
-          : <p className="mt-5 text-sm text-muted-foreground">No apps to preview yet.</p>}
+        <p className="mt-2 text-muted-foreground">Pick a listing and a format. Copy the snippet straight into your page.{!apps.length && " No apps are listed yet, so the preview uses a fictional sample — the snippet works unchanged once you swap in a real slug."}</p>
+        <div className="mt-5"><PartnerKit apps={apps.length ? apps.map((a) => ({ slug: a.slug, name: a.name })) : [{ slug: exampleApp.slug, name: `${exampleApp.name} (example)` }]} /></div>
       </section>
 
       <section id="api" className="mt-20 scroll-mt-24">

@@ -1,27 +1,24 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { notFound } from "next/navigation"
 import { FlaskConical } from "lucide-react"
 import { AppIcon } from "@/components/app/app-icon"
 import { PartnerKit } from "@/components/app/partner-kit"
 import { PageShell } from "@/components/app/section-header"
 import { Stars } from "@/components/app/stars"
-import { getAppBySlug } from "@/lib/data"
+import { exampleApp } from "@/lib/partner-example"
 
 export const metadata: Metadata = { title: "Partner Kit: worked example", robots: { index: false } }
-
-const DEMO_APP_SLUG = "metro-fit"
 
 /**
  * A self-contained, clearly-fictional worked example of the Partner Kit: what a launch board's page
  * looks like BEFORE and AFTER adding a PWANova badge. "Vibeboard" is not a real company and is not a
  * PWANova partner — it exists only on this page to demonstrate the integration, the same way a design
- * system's docs show a fake app in a phone frame. It intentionally reuses one of PWANova's own seed
- * apps (clearly marked "Demo data" in the badge itself) rather than any real developer's listing.
+ * system's docs show a fake app in a phone frame. The listing it shows is a static, in-code sample
+ * (src/lib/partner-example.ts, always marked "demo data" in the badge itself), never a real
+ * developer's app and never a database row — so this page works even on a project with no demo data.
  */
-export default async function PartnerDemoPage() {
-  const app = await getAppBySlug(DEMO_APP_SLUG)
-  if (!app) notFound()
+export default function PartnerDemoPage() {
+  const app = exampleApp
 
   return (
     <PageShell className="max-w-3xl">
@@ -51,8 +48,8 @@ export default async function PartnerDemoPage() {
 
       <section className="mt-12">
         <h2 className="text-xl font-semibold">The actual badge, live</h2>
-        <p className="mt-1 text-sm text-muted-foreground">This is real data from a real (demo-flagged) PWANova listing — not a mockup. Pick a format and copy it.</p>
-        <div className="mt-4"><PartnerKit apps={[{ slug: app.slug, name: app.name }]} refCode="vibeboard-demo" /></div>
+        <p className="mt-1 text-sm text-muted-foreground">These are the real badge and embed endpoints, rendering a fictional sample listing (it says so on the badge). Swap the slug for a real app&apos;s and the snippet works as-is. Pick a format and copy it.</p>
+        <div className="mt-4"><PartnerKit apps={[{ slug: app.slug, name: `${app.name} (example)` }]} refCode="vibeboard-demo" /></div>
         <p className="mt-3 text-xs text-muted-foreground">Following the canonical link sets a 30-day referral cookie for <code>vibeboard-demo</code> — the same mechanism a real partner uses — but because no partner named “vibeboard-demo” exists in PWANova&apos;s partner table, it is never counted as an official, attributed partner. See <Link className="underline" href="/partners#api">the attribution model</Link>.</p>
       </section>
     </PageShell>
