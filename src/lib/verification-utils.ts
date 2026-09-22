@@ -20,3 +20,11 @@ export const wellKnownMatches = (body: string, token: string) => body.trim() ===
 
 /** TXT records are joined per record; the expected value is `pwanova-verification=TOKEN`. */
 export const txtRecordMatches = (records: string[][], token: string) => records.some((r) => r.join("") === `pwanova-verification=${token}`)
+
+/** A claim token is only valid while fresh; an expired one must not be accepted even if it still matches. */
+export const isClaimExpired = (expiresAtIso: string, now: Date | number = Date.now()) => new Date(expiresAtIso).getTime() <= new Date(now).valueOf()
+
+/** Fresh, unguessable, URL-safe token for a new (or restarted) ownership claim. Not derived from any secret. */
+export const generateClaimToken = () => crypto.randomUUID().replace(/-/g, "")
+
+export const CLAIM_TTL_MS = 3 * 24 * 60 * 60 * 1000 // 3 days, mirrors app_claims.expires_at's default in the schema

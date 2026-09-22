@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- PostgREST rows are mapped at this boundary */
 import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
-import { isSupabaseConfigured } from "@/lib/env"
+import { isSupabaseConfigured, showDemoData } from "@/lib/env"
 import { CATEGORIES } from "@/lib/constants"
 import type {
   AppFilters, AppView, DashboardData, DeveloperView, RatingBreakdown, ReviewView, Viewer,
@@ -43,6 +43,7 @@ export async function getApps(f: AppFilters = {}): Promise<AppView[]> {
   if (!isSupabaseConfigured) return filterDemoApps(demo().apps, f)
   const sb = await createClient()
   let q = sb.from("apps_public").select("*")
+  if (!showDemoData) q = q.eq("is_demo", false) // fabricated seed rows never appear in real listings, search, rankings or the sitemap
   if (f.q) {
     for (const t of f.q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6)) {
       const safe = t.replace(/[^a-z0-9.\-_ ]/g, "")
@@ -72,7 +73,9 @@ export async function getApps(f: AppFilters = {}): Promise<AppView[]> {
 export async function getFeaturedApps(limit = 6): Promise<AppView[]> {
   if (!isSupabaseConfigured) return demo().apps.filter((a) => a.isFeatured).slice(0, limit)
   const sb = await createClient()
-  const { data } = await sb.from("apps_public").select("*").eq("is_featured", true).order("ranking_score", { ascending: false }).limit(limit)
+  let q = sb.from("apps_public").select("*").eq("is_featured", true)
+  if (!showDemoData) q = q.eq("is_demo", false)
+  const { data } = await q.order("ranking_score", { ascending: false }).limit(limit)
   const rows = (data ?? []).map((r) => mapApp(r))
   return rows.length ? rows : getApps({ sort: "top", limit })
 }
@@ -86,11 +89,15 @@ export const getAppBySlug = cache(async (slug: string): Promise<AppView | null> 
   return mapApp(data, (shots ?? []).map((s: Row) => s.image_url))
 })
 
+/** Backs the public partner API. Demo/fabricated apps are excluded unless SHOW_DEMO_DATA=true: a real
+ *  launch board must never receive fake ratings for a domain it doesn't actually control the truth of. */
 export async function getAppByDomain(domain: string): Promise<AppView | null> {
   const d = domain.toLowerCase().replace(/^www\./, "")
   if (!isSupabaseConfigured) return demo().apps.find((a) => a.domain.replace(/^www\./, "") === d) ?? null
   const sb = await createClient()
-  const { data } = await sb.from("apps_public").select("*").in("domain", [d, `www.${d}`]).limit(1).maybeSingle()
+  let q = sb.from("apps_public").select("*").in("domain", [d, `www.${d}`])
+  if (!showDemoData) q = q.eq("is_demo", false)
+  const { data } = await q.limit(1).maybeSingle()
   return data ? mapApp(data) : null
 }
 
@@ -190,20 +197,21 @@ export async function getSavedApps(userId: string): Promise<AppView[]> {
 export interface MyApp {
   id: string; slug: string; name: string; domain: string; url: string; iconUrl: string | null; status: string
   ownershipStatus: AppView["ownershipStatus"]; verificationStatus: AppView["verificationStatus"]; category: string
+  moderationNote: string | null
 }
 export async function getMyApps(userId: string): Promise<MyApp[]> {
   const sb = await createClient()
-  const { data } = await sb.from("apps").select("id, slug, name, domain, url, icon_url, status, ownership_status, verification_status, category").eq("developer_id", userId).order("created_at", { ascending: false })
-  return (data ?? []).map((r: Row) => ({ id: r.id, slug: r.slug, name: r.name, domain: r.domain, url: r.url, iconUrl: r.icon_url, status: r.status, ownershipStatus: r.ownership_status, verificationStatus: r.verification_status, category: r.category }))
+  const { data } = await sb.from("apps").select("id, slug, name, domain, url, icon_url, status, ownership_status, verification_status, category, moderation_note").eq("developer_id", userId).order("created_at", { ascending: false })
+  return (data ?? []).map((r: Row) => ({ id: r.id, slug: r.slug, name: r.name, domain: r.domain, url: r.url, iconUrl: r.icon_url, status: r.status, ownershipStatus: r.ownership_status, verificationStatus: r.verification_status, category: r.category, moderationNote: r.moderation_note }))
 }
 
-export interface OwnedApp { id: string; slug: string; name: string; domain: string; iconUrl: string | null; status: string; ownershipStatus: AppView["ownershipStatus"]; ownerId: string }
+export interface OwnedApp { id: string; slug: string; name: string; domain: string; iconUrl: string | null; status: string; ownershipStatus: AppView["ownershipStatus"]; ownerId: string; moderationNote: string | null }
 /** The caller's own app regardless of moderation status (RLS lets owners read their unpublished apps). */
 export async function getOwnedAppBySlug(slug: string, userId: string): Promise<OwnedApp | null> {
   if (!isSupabaseConfigured) return null
   const sb = await createClient()
-  const { data } = await sb.from("apps").select("id, slug, name, domain, icon_url, status, ownership_status, developer_id").eq("slug", slug).eq("developer_id", userId).maybeSingle()
-  return data ? { id: data.id, slug: data.slug, name: data.name, domain: data.domain, iconUrl: data.icon_url, status: data.status, ownershipStatus: data.ownership_status, ownerId: data.developer_id } : null
+  const { data } = await sb.from("apps").select("id, slug, name, domain, icon_url, status, ownership_status, developer_id, moderation_note").eq("slug", slug).eq("developer_id", userId).maybeSingle()
+  return data ? { id: data.id, slug: data.slug, name: data.name, domain: data.domain, iconUrl: data.icon_url, status: data.status, ownershipStatus: data.ownership_status, ownerId: data.developer_id, moderationNote: data.moderation_note } : null
 }
 
 export async function getDashboard(): Promise<DashboardData> {
@@ -240,11 +248,18 @@ export async function getPartnerByRef(ref: string) {
 // ------------------------------------------------------------------ admin
 export async function getAdminOverview() {
   const sb = await createClient()
-  const [{ data: reports }, { data: apps }] = await Promise.all([
+  const [{ data: reports }, { data: apps }, { data: auditLog }] = await Promise.all([
     sb.from("reports").select("id, reason, details, status, created_at, app:apps(id, name, slug), review:reviews(id, body, app_id)").in("status", ["open", "reviewing"]).order("created_at", { ascending: false }).limit(50),
-    sb.from("apps").select("id, name, slug, status, verification_status, ownership_status, is_featured, domain, is_demo").order("created_at", { ascending: false }).limit(100),
+    sb.from("apps").select("id, name, slug, status, verification_status, ownership_status, is_featured, domain, is_demo, moderation_note").order("created_at", { ascending: false }).limit(200),
+    sb.from("admin_actions").select("id, action, target_type, target_id, reason, created_at, admin:profiles(username, display_name)").order("created_at", { ascending: false }).limit(30),
   ])
-  return { reports: (reports ?? []) as Row[], apps: (apps ?? []) as Row[] }
+  const all = (apps ?? []) as Row[]
+  return {
+    reports: (reports ?? []) as Row[],
+    pending: all.filter((a) => a.status === "pending"),
+    apps: all,
+    auditLog: (auditLog ?? []) as Row[],
+  }
 }
 
 export async function getSitemapData() {

@@ -8,7 +8,8 @@ import { rankingScore } from "../src/lib/ranking"
 import { detectHost } from "../src/lib/analyzer-host"
 import { detectPlatform } from "../src/lib/platform"
 import { filterDemoApps, demo } from "../src/lib/data/demo"
-import { hasMetaToken, txtRecordMatches, wellKnownMatches } from "../src/lib/verification-utils"
+import { hasMetaToken, txtRecordMatches, wellKnownMatches, isClaimExpired, generateClaimToken, CLAIM_TTL_MS } from "../src/lib/verification-utils"
+import { badgeSvg, badgeNotFoundSvg } from "../src/lib/badge-svg"
 
 describe("URL validation", () => {
   const bad = [
@@ -123,5 +124,36 @@ describe("ownership verification helpers", () => {
   it("DNS TXT records are joined and matched exactly", () => {
     assert.ok(txtRecordMatches([["v=spf1 -all"], [`pwanova-verification=${token.slice(0, 10)}`, token.slice(10)]], token))
     assert.ok(!txtRecordMatches([[`pwanova-verification=${token}x`]], token))
+  })
+  it("claim tokens expire after their window and not before", () => {
+    const issued = Date.now()
+    const expiresAt = new Date(issued + CLAIM_TTL_MS).toISOString()
+    assert.ok(!isClaimExpired(expiresAt, issued), "not expired the moment it's issued")
+    assert.ok(!isClaimExpired(expiresAt, issued + CLAIM_TTL_MS - 1000), "not expired one second before the deadline")
+    assert.ok(isClaimExpired(expiresAt, issued + CLAIM_TTL_MS + 1), "expired one millisecond after the deadline")
+  })
+  it("claim tokens are unguessable and unique", () => {
+    const a = generateClaimToken(), b = generateClaimToken()
+    assert.match(a, /^[0-9a-f]{32}$/)
+    assert.notEqual(a, b)
+  })
+})
+
+describe("partner badge SVG", () => {
+  it("escapes an app name that contains markup or quotes", () => {
+    const svg = badgeSvg({ title: '4.8 ★', subtitle: `<script>alert("x")</script>&Co`, verified: false, demo: false, dark: false })
+    assert.ok(!svg.includes("<script>"), "raw script tag must not appear in the output")
+    assert.ok(svg.includes("&lt;script&gt;") && svg.includes("&amp;Co") && svg.includes("&quot;x&quot;"))
+    assert.ok(svg.trim().startsWith("<svg"), "still valid, well-formed SVG")
+  })
+  it("shows a check mark only when verified, and a demo marker only when demo", () => {
+    const plain = badgeSvg({ title: "View on PWANova", subtitle: "App", verified: false, demo: false, dark: false })
+    const verifiedDemo = badgeSvg({ title: "4.8 ★", subtitle: "App", verified: true, demo: true, dark: true })
+    assert.ok(!plain.includes("✓") && !plain.includes("demo"))
+    assert.ok(verifiedDemo.includes("✓") && verifiedDemo.includes("demo"))
+  })
+  it("the not-found badge is still a well-formed, non-empty SVG", () => {
+    assert.ok(badgeNotFoundSvg(false).trim().startsWith("<svg"))
+    assert.ok(badgeNotFoundSvg(true).includes("Not listed on PWANova"))
   })
 })
