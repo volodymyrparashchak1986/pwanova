@@ -1,5 +1,5 @@
 /* PWANova service worker: offline fallback + static asset caching. Bump VERSION to invalidate. */
-const VERSION = "v1"
+const VERSION = "v2-beta"
 const STATIC = `pwanova-static-${VERSION}`
 const PAGES = `pwanova-pages-${VERSION}`
 

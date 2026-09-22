@@ -28,7 +28,7 @@ jobs:
       - run: npm run lint
       # Runs the real migrations + seed on an in-process Postgres (PGlite) and checks RLS / business rules.
       - run: npm test
-      # No env vars on purpose: the build must succeed in demo mode.
+      # No env vars on purpose: production build must succeed without inventing demo/backend data.
       - run: npm run build
 
   # Production deploy to Vercel after CI passes on main. Disabled until the repository variable

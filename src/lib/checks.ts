@@ -2,14 +2,9 @@ import "server-only"
 import { analyzeUrl, type AnalysisResult } from "@/lib/analyzer"
 import { createAdminClient } from "@/lib/supabase/admin"
 
-/**
- * PWANova Verified = verified domain ownership AND a passing basic quality check:
- * reachable, valid HTTPS, security basics, web-app metadata, responsive + mobile-ready.
- */
-export function qualifiesForVerified(a: AnalysisResult, ownershipVerified: boolean) {
-  const c = a.checks
-  const metadata = c.manifest_ok || Boolean(a.title)
-  return ownershipVerified && c.reachable && c.https_ok && c.security_ok && metadata && c.responsive && c.mobile_optimized
+/** Ownership and technical observations are independent; never a security certificate. */
+export function qualifiesForVerified(_a: AnalysisResult, ownershipVerified: boolean) {
+  return ownershipVerified
 }
 
 export function healthFrom(a: AnalysisResult): "online" | "degraded" | "offline" {
@@ -25,17 +20,15 @@ export async function runAppChecks(appId: string): Promise<{ ok: boolean; error?
   if (!app) return { ok: false, error: "App not found." }
 
   const a = await analyzeUrl(app.url)
-  const now = new Date().toISOString()
-  await admin.from("app_checks").upsert({ app_id: appId, ...a.checks, details: { notes: a.notes, hostSignal: a.hostSignal }, last_checked_at: now }, { onConflict: "app_id" })
-
-  const owner = app.ownership_status === "verified_owner"
-  const verified = qualifiesForVerified(a, owner)
-  await admin.from("apps").update({
-    is_pwa: a.isPwa,
-    is_installable: a.isInstallable,
-    health_status: healthFrom(a),
-    health_checked_at: now,
-    verification_status: verified ? "verified" : owner ? "failed" : "unverified",
-  }).eq("id", appId)
-  return { ok: true, verified }
+  const { data: recorded, error } = await admin.rpc("record_app_checks", {
+    p_app_id: appId, p_url: app.url, p_checks: a.checks,
+    p_details: { method: "bounded_http_fetch", notes: a.notes, evidence: {
+      reachable: `HTTP ${a.checks.status_code ?? "unavailable"}`,
+      https: a.checks.https_ok === null ? "Connection not established" : "TLS observation; not a security audit",
+      manifest: a.manifestUrl ?? "No manifest link detected",
+      browserCapabilities: "Unknown: no browser execution performed",
+    } },
+  })
+  if (error || !recorded) return { ok: false, error: "Check could not be saved; the app URL may have changed." }
+  return { ok: true, verified: app.ownership_status === "verified_owner" }
 }

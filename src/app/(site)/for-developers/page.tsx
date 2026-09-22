@@ -18,7 +18,7 @@ const BENEFITS = [
   { icon: BarChart3, title: "Understand traffic, measure opens", body: "See views, opens, install actions and where visitors came from." },
   { icon: Compass, title: "Get discovered", body: "Search, categories, trending and top lists filterable by build tool, host and launch source." },
   { icon: ShieldCheck, title: "Claim your app", body: "Already listed? Prove domain ownership with a meta tag, a well-known file or DNS." },
-  { icon: BadgeCheck, title: "PWANova Verified", body: "Ownership plus a basic security and web-app quality check, shown on your listing." },
+  { icon: BadgeCheck, title: "Ownership verified", body: "Proof of origin control, displayed separately from technical checks. Not a security audit." },
 ]
 
 export default function ForDevelopersPage() {

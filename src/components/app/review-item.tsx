@@ -27,17 +27,18 @@ export function ReviewItem({ review, slug, viewerId, canRespond }: { review: Rev
         <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-muted text-sm font-semibold">
           {review.author.avatarUrl
             // eslint-disable-next-line @next/next/no-img-element -- remote avatar
-            ? <img src={review.author.avatarUrl} alt="" referrerPolicy="no-referrer" className="size-full object-cover" />
+            ? <img src={`/api/media?url=${encodeURIComponent(review.author.avatarUrl)}`} alt="" referrerPolicy="no-referrer" className="size-full object-cover" />
             : review.author.name.slice(0, 1)}
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{review.author.name}{mine && <span className="ml-2 text-xs font-normal text-muted-foreground">You</span>}</p>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><Stars value={review.rating} size={12} /><span>{timeAgo(review.createdAt)}</span>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">{review.rating === null ? <span>No rating</span> : <Stars value={review.rating} size={12} />}<span>{timeAgo(review.createdAt)}</span>
             {review.verifiedUsage && <span className="inline-flex items-center gap-0.5 text-brand"><BadgeCheck className="size-3" />Verified usage</span>}
             {review.isDemo && <span className="rounded-full border border-dashed border-border px-1.5">demo</span>}
           </div>
         </div>
       </header>
+      {review.hiddenAt && <p role="status" className="mt-3 rounded-lg bg-muted p-3 text-sm">Hidden by moderation; visible only to you here. {review.moderationReason}</p>}
       {review.title && <h4 className="mt-3 font-semibold">{review.title}</h4>}
       <p className={cn("whitespace-pre-line text-[15px] text-foreground/90", review.title ? "mt-1" : "mt-3")}>{review.body}</p>
 

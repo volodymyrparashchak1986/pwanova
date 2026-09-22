@@ -16,11 +16,16 @@ export function isPrivateIp(ip: string): boolean {
       (a === 172 && b >= 16 && b <= 31) ||
       (a === 192 && b === 168) ||
       (a === 192 && b === 0) ||
-      (a === 198 && (b === 18 || b === 19))
+      (a === 198 && (b === 18 || b === 19 || b === 51)) || (a === 203 && b === 0)
     )
   }
   if (v.includes(":")) {
-    return v === "::" || v === "::1" || /^(fc|fd|fe[89ab]|ff)/.test(v)
+    // Only globally routed IPv6 unicast. Reject mapped/translated IPv4,
+    // loopback, ULA, link-local, multicast, transition and documentation ranges.
+    let normalized: string
+    try { normalized = new URL(`http://[${v}]/`).hostname.slice(1, -1) } catch { return true }
+    return !/^[23][0-9a-f]{3}:/.test(normalized) ||
+      /^2001:(?:0:|db8:|[12][0-9a-f]:)/.test(normalized) || /^2002:/.test(normalized)
   }
   return false
 }
@@ -38,7 +43,7 @@ export function parsePublicUrl(input: string): URL {
   if (host === "localhost" || BLOCKED_HOST_SUFFIXES.some((s) => host.endsWith(s))) throw new UrlError("Local and internal addresses are not allowed.")
   if (isPrivateIp(host)) throw new UrlError("Private IP addresses are not allowed.")
   if (!host.includes(".") && !host.includes(":")) throw new UrlError("Enter a fully qualified domain.")
-  if (url.port && !["80", "443"].includes(url.port)) throw new UrlError("Only default ports are allowed.")
+  if (url.port) throw new UrlError("Only default ports are allowed.")
   url.hash = ""
   return url
 }
@@ -50,4 +55,9 @@ export function domainOf(url: string | URL): string {
 
 export function slugify(input: string): string {
   return input.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "app"
+}
+
+export function canonicalAppUrl(input: string): string {
+  const url = parsePublicUrl(input)
+  return url.origin + (url.pathname.replace(/\/+$/, "") || "/")
 }

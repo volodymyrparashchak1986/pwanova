@@ -89,7 +89,7 @@ export default async function AppPage({ params, searchParams }: Props) {
           <div className="mt-4 flex items-center justify-center gap-2 sm:justify-start">
             <span className="text-2xl font-semibold tabular-nums">{app.ratingsCount ? app.rating.toFixed(1) : "–"}</span>
             <Stars value={app.rating} size={16} />
-            <span className="text-sm text-muted-foreground">{formatCount(app.ratingsCount)} {app.ratingsCount === 1 ? "rating" : "ratings"}</span>
+            <span className="text-sm text-muted-foreground">{app.ratingsCount ? `${formatCount(app.ratingsCount)} ${app.ratingsCount === 1 ? "rating" : "ratings"}` : "No ratings yet"}</span>
           </div>
           <div id="install" className="mt-5 flex scroll-mt-20 justify-center sm:justify-start">
             <AppActions app={app} signedIn={Boolean(viewer)} saved={state.favorited} from={from} />
@@ -100,7 +100,7 @@ export default async function AppPage({ params, searchParams }: Props) {
       {app.ownershipStatus !== "verified_owner" && (
         <div className="mt-8 flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-accent/50 p-4">
           <ShieldQuestion className="size-6 text-brand" />
-          <div className="min-w-0 flex-1"><p className="font-semibold">Is this your app?</p><p className="text-sm text-muted-foreground">{app.ownershipStatus === "unclaimed" ? "This listing hasn't been claimed yet." : "The owner of this listing hasn't verified ownership."} Claim it to respond to reviews, see analytics and earn PWANova Verified.</p></div>
+          <div className="min-w-0 flex-1"><p className="font-semibold">Is this your app?</p><p className="text-sm text-muted-foreground">{app.ownershipStatus === "unclaimed" ? "This listing hasn't been claimed yet." : "The owner of this listing hasn't verified ownership."} Claim it to respond to reviews, see analytics and earn Ownership verified.</p></div>
           <Link href={`/apps/${app.slug}/claim`} className={cn(buttonVariants({ variant: "default" }), "rounded-full")}>Claim this app</Link>
         </div>
       )}
@@ -118,7 +118,7 @@ export default async function AppPage({ params, searchParams }: Props) {
           {app.launchSource && <div><dt className="text-xs text-muted-foreground">{app.launchSource.type === "launched_on" ? "Launched on" : "Discovered via"}</dt><dd className="font-medium">{app.launchSource.url ? <a className="hover:underline" href={app.launchSource.url} rel="noopener noreferrer nofollow" target="_blank">{app.launchSource.name}</a> : app.launchSource.name}</dd></div>}
           <div className="grid grid-cols-3 gap-2 border-t border-border pt-3 text-center">
             <div><Eye className="mx-auto size-4 text-muted-foreground" /><p className="mt-1 font-semibold">{formatCount(app.opens30d)}</p><p className="text-[11px] text-muted-foreground">Opens · 30d</p></div>
-            <div><MousePointerClick className="mx-auto size-4 text-muted-foreground" /><p className="mt-1 font-semibold">{formatCount(app.installActions)}</p><p className="text-[11px] text-muted-foreground">Install actions</p></div>
+            <div><MousePointerClick className="mx-auto size-4 text-muted-foreground" /><p className="mt-1 font-semibold">{formatCount(app.installActions)}</p><p className="text-[11px] text-muted-foreground">Install intents · 90d</p></div>
             <div><Bookmark className="mx-auto size-4 text-muted-foreground" /><p className="mt-1 font-semibold">{formatCount(app.favoritesCount)}</p><p className="text-[11px] text-muted-foreground">Saved</p></div>
           </div>
         </dl>
@@ -127,13 +127,14 @@ export default async function AppPage({ params, searchParams }: Props) {
       <section className="mt-10"><QualityPanel app={app} /></section>
 
       <section className="mt-12 scroll-mt-20" id="reviews" aria-labelledby="ratings-h">
+        <p className="mb-2 text-sm text-muted-foreground"><Link href="/review-rules" className="underline">Review rules and reporting</Link></p>
         <h2 id="ratings-h" className="text-2xl font-semibold tracking-tight">Ratings &amp; Reviews</h2>
         <div className="mt-5 grid gap-6 rounded-3xl border border-border bg-card p-5 md:grid-cols-2 md:p-6">
           <RatingSummary data={breakdown} />
           <div className="flex flex-col justify-center gap-4 md:border-l md:border-border md:pl-6">
             <RateBox appId={app.id} slug={app.slug} signedIn={Boolean(viewer)} isOwner={isOwner} initial={state.myRating} />
             {!isOwner && (
-              <ReviewForm key={myReview?.id ?? "new"} appId={app.id} slug={app.slug} signedIn={Boolean(viewer)}
+              <ReviewForm viewerId={viewer?.id ?? null} key={myReview?.id ?? "new"} appId={app.id} slug={app.slug} signedIn={Boolean(viewer)}
                 defaultRating={state.myRating} existing={myReview ? { rating: myReview.rating, title: myReview.title, body: myReview.body } : null} />
             )}
           </div>

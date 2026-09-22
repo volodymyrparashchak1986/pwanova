@@ -11,10 +11,10 @@ These are **goals for the next stage**, not results already achieved. Nothing he
 
 ## Before inviting anyone
 
-- [ ] Run `npm run verify:supabase` against the target project and get a clean pass (see `docs/beta-audit.md`, "Not verified").
+- [ ] Run `npm run verify:supabase` against local Supabase; separately authorize any staging checks and get a clean pass (see `docs/beta-audit.md`, "Not verified").
 - [ ] Confirm Google/GitHub OAuth (or at least email magic-link) actually completes end to end on that project.
 - [ ] Make yourself admin (`update public.profiles set role = 'admin' where username = '…'`) and confirm `/admin` loads.
-- [ ] Decide `SUBMIT_REQUIRES_APPROVAL` (recommended: `true` for the pilot, so every submission goes through the queue you'll be watching).
+- [ ] Confirm the mandatory moderation queue is staffed; submission approval is database-enforced.
 - [ ] Leave `SHOW_DEMO_DATA=false` and `ALLOW_INDEXING=false` for the whole pilot — nobody outside the invited group should be finding this via search, and no fabricated data should ever be visible.
 - [ ] Run `supabase/unseed.sql` if the target project ever had `supabase/seed.sql` loaded into it.
 
@@ -27,9 +27,9 @@ These are **goals for the next stage**, not results already achieved. Nothing he
 > I'm building PWANova — a discovery and trust layer for web apps that already live outside the traditional app stores. {App name} looked like a strong fit, so I wanted to ask before anything else: would you be open to being one of the first ~10 developers to add it?
 >
 > What that involves:
-> 1. Paste your app's URL at pwanova.app/ship — it reads your title, icon and manifest automatically.
+> 1. Paste your app's URL at {beta URL}/ship — it reads your title, icon and manifest automatically.
 > 2. Verify you own the domain (one file at `/.well-known/pwanova-verification.txt` — a few minutes).
-> 3. That's it. You'll show up in search and categories, collect real ratings and reviews, and can reply to them as the verified owner.
+> 3. After separate publication approval, you'll show up in search and categories, collect real ratings and reviews, and can reply to them as the verified owner.
 >
 > This is a closed beta — not indexed by search engines yet — so it's low-stakes to try, and I'd genuinely like your honest reaction, especially anything that's confusing or broken.
 >
@@ -43,7 +43,7 @@ These are **goals for the next stage**, not results already achieved. Nothing he
 >
 > PWANova is a discovery and trust layer for web apps — ratings, reviews, ownership verification, install guidance and a small public API. It's built to sit *next to* launch boards, not compete with them: your page, your brand and your upvotes stay exactly where they are.
 >
-> I'd like to ask you to be one of two boards trying it early: a badge next to a listing (either a JS-free `<img>` or a small iframe — pwanova.app/partners has both, live, with a copy-paste generator) and, if useful, a lookup against our public API by domain.
+> I'd like to ask you to be one of two boards trying it early: a badge next to a listing (either a JS-free `<img>` or a small iframe — {beta URL}/partners has both, live, with a copy-paste generator) and, if useful, a lookup against our public API by domain.
 >
 > Takes a few minutes to try, no commitment, and I'd like your honest read on whether it's actually useful before building anything further (a partner dashboard, bulk import, revenue share) on top of it.
 

@@ -7,7 +7,7 @@ export function RatingSummary({ data }: { data: RatingBreakdown }) {
       <div className="text-center sm:text-left">
         <p className="text-6xl font-semibold tracking-tight tabular-nums">{data.count ? data.average.toFixed(1) : "–"}</p>
         <Stars value={data.average} size={18} className="mt-2" />
-        <p className="mt-1.5 text-sm text-muted-foreground">{new Intl.NumberFormat("en").format(data.count)} {data.count === 1 ? "rating" : "ratings"}</p>
+        <p className="mt-1.5 text-sm text-muted-foreground">{data.count ? `${new Intl.NumberFormat("en").format(data.count)} ${data.count === 1 ? "rating" : "ratings"}` : "No ratings yet"}</p>
       </div>
       <ul className="space-y-1.5" aria-label="Rating breakdown">
         {data.rows.map((r) => (

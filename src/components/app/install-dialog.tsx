@@ -71,6 +71,7 @@ export function InstallDialog({ app, open, onOpenChange, from }: {
           </ol>
         )}
 
+        <p className="text-sm text-muted-foreground">If your browser offers no install option, use the app on its website or save a bookmark. Availability depends on the app and browser.</p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button size="lg" className="flex-1" onClick={openApp}><ExternalLink className="size-4" />Open {domain}</Button>
           <Button size="lg" variant="outline" onClick={() => onOpenChange(false)}>Done</Button>

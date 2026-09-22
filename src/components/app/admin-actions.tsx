@@ -7,7 +7,7 @@ import { adminAction, reassignOwner } from "@/actions/admin"
 
 type Kind = Parameters<typeof adminAction>[0]["kind"]
 // Actions where a moderator's reason is worth recording and (for reject/hide/suspend) is shown to the developer.
-const ASKS_REASON: Kind[] = ["reject", "hide", "suspend"]
+const ASKS_REASON: Kind[] = ["reject", "hide", "suspend", "remove_review"]
 
 export function AdminButtons({ id, actions }: { id: string; actions: { kind: Kind; label: string; danger?: boolean }[] }) {
   const [pending, start] = useTransition()

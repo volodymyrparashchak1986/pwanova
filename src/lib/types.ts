@@ -17,6 +17,8 @@ export interface AppView {
   iconUrl: string | null
   category: CategorySlug
   status: AppStatus
+  ownershipMethod?: string | null
+  ownershipVerifiedAt?: string | null
   ownershipStatus: OwnershipStatus
   verificationStatus: VerificationStatus
   isPwa: boolean
@@ -44,6 +46,8 @@ export interface AppView {
 }
 
 export interface AppChecks {
+  method?: string | null
+  evidence?: Record<string, string>
   reachable: boolean | null
   httpsOk: boolean | null
   responsive: boolean | null
@@ -58,10 +62,12 @@ export interface AppChecks {
 }
 
 export interface ReviewView {
+  hiddenAt?: string | null
+  moderationReason?: string | null
   id: string
   appId: string
   userId: string
-  rating: number
+  rating: number | null
   title: string | null
   body: string
   helpfulCount: number
@@ -118,7 +124,7 @@ export interface AppFilters {
 }
 
 export interface DashboardData {
-  totals: { views: number; opens: number; installActions: number; favorites: number; ratings: number; reviews: number; averageRating: number }
+  totals: { views: number; opens: number; installActions: number; guidanceViews?: number; favorites: number; ratings: number; reviews: number; averageRating: number }
   series: { date: string; views: number; opens: number; installActions: number }[]
   trafficSources: { source: string; count: number }[]
   launchSources: { source: string; count: number }[]

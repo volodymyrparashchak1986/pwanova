@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useSyncExternalStore } from "react"
 import { useRouter } from "next/navigation"
 import { Bookmark, Check, Download, ExternalLink, Flag, Share2 } from "lucide-react"
 import { toast } from "sonner"
@@ -11,10 +11,15 @@ import { toggleFavorite } from "@/actions/engagement"
 import { track } from "@/lib/track"
 import { usePlatform } from "@/lib/use-platform"
 
+const subscribeHash = (callback: () => void) => {
+  window.addEventListener("hashchange", callback)
+  return () => window.removeEventListener("hashchange", callback)
+}
 export function AppActions({ app, signedIn, saved: initialSaved, from }: {
   app: { id: string; name: string; slug: string; iconUrl: string | null; url: string; isInstallable: boolean; isDemo: boolean }
   signedIn: boolean; saved: boolean; from?: string
 }) {
+  const hash = useSyncExternalStore(subscribeHash, () => location.hash, () => "")
   const router = useRouter()
   const [saved, setSaved] = useState(initialSaved)
   const [installOpen, setInstallOpen] = useState(false)
@@ -55,7 +60,10 @@ export function AppActions({ app, signedIn, saved: initialSaved, from }: {
       </Button>
       <Button size="icon-lg" variant="outline" className="rounded-full" onClick={onShare} aria-label="Share"><Share2 className="size-4" /></Button>
       <Button size="icon-lg" variant="ghost" className="rounded-full text-muted-foreground" onClick={() => (signedIn ? setReportOpen(true) : router.push(`/sign-in?next=/apps/${app.slug}`))} aria-label="Report app"><Flag className="size-4" /></Button>
-      <InstallDialog app={app} open={installOpen} onOpenChange={setInstallOpen} from={from} />
+      <InstallDialog app={app} open={installOpen || hash === "#install"} onOpenChange={(open) => {
+        setInstallOpen(open)
+        if (!open && location.hash === "#install") { history.replaceState(null, "", location.pathname + location.search); window.dispatchEvent(new HashChangeEvent("hashchange")) }
+      }} from={from} />
       <ReportDialog open={reportOpen} onOpenChange={setReportOpen} target={{ appId: app.id }} title={`Report ${app.name}`} />
     </div>
   )

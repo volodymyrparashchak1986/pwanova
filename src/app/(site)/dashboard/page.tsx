@@ -6,7 +6,7 @@ import { BarList, TrendChart } from "@/components/app/charts"
 import { PageShell, EmptyState } from "@/components/app/section-header"
 import { buttonVariants } from "@/components/ui/button"
 import { getDashboard, getMyApps, getViewer } from "@/lib/data"
-import { isSupabaseConfigured } from "@/lib/env"
+import { isSupabaseConfigured, demoMode } from "@/lib/env"
 import { formatCount } from "@/lib/format"
 import { SignedOutCard } from "@/components/app/signed-out"
 import { demo } from "@/lib/data/demo"
@@ -14,28 +14,30 @@ import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = { title: "Developer dashboard", robots: { index: false } }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
+  const days = (await searchParams).days === "7" ? 7 : 30
   const viewer = await getViewer()
-  if (!viewer && isSupabaseConfigured) return <PageShell><SignedOutCard title="Developer dashboard" body="Sign in to see how your apps are performing." next="/dashboard" /></PageShell>
+  if (!viewer && (isSupabaseConfigured || !demoMode)) return <PageShell><SignedOutCard title="Developer dashboard" body="Sign in to see how your apps are performing." next="/dashboard" /></PageShell>
 
-  const data = await getDashboard()
+  const data = await getDashboard(days)
   const apps = viewer
     ? await getMyApps(viewer.id)
     : demo().apps.filter((a) => a.developer.username === "novalabs").map((a) => ({ id: a.id, slug: a.slug, name: a.name, domain: a.domain, url: a.url, iconUrl: null, status: a.status, ownershipStatus: a.ownershipStatus, verificationStatus: a.verificationStatus, category: a.category, moderationNote: null }))
   const t = data.totals
   const tiles: [string, string, string?][] = [
-    ["Views", formatCount(t.views)], ["Opens", formatCount(t.opens)], ["Install actions", formatCount(t.installActions), "Clicks on Install. Not confirmed installs."],
-    ["Favorites", formatCount(t.favorites)], ["Rating", t.averageRating ? t.averageRating.toFixed(1) : "–", `${formatCount(t.ratings)} ratings`], ["Reviews", formatCount(t.reviews)],
+    ["Views", formatCount(t.views)], ["Opens", formatCount(t.opens)], ["Install intents", formatCount(t.installActions), "Clicks on Install. Not confirmed installs."],
+    ["Install guidance", formatCount(t.guidanceViews ?? 0)], ["Favorites", formatCount(t.favorites)], ["Rating", t.averageRating ? t.averageRating.toFixed(1) : "–", `${formatCount(t.ratings)} ratings`], ["Reviews", formatCount(t.reviews)],
   ]
 
   return (
     <PageShell>
       {!viewer && <p className="mb-6 rounded-xl bg-accent px-4 py-2 text-sm text-accent-foreground">Demo mode: showing sample analytics for the demo developer “Nova Labs”.</p>}
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div><h1 className="text-4xl font-semibold tracking-tight">Dashboard</h1><p className="mt-1 text-muted-foreground">Last 14 days across your apps.</p></div>
+        <div><h1 className="text-4xl font-semibold tracking-tight">Dashboard</h1><p className="mt-1 text-muted-foreground">Last {days} days across your apps. Events are counts, not unique people.</p></div>
         <Link href="/ship" className={cn(buttonVariants(), "rounded-full")}><Plus className="size-4" />Ship an app</Link>
       </div>
 
+      <nav className="mt-4 flex gap-4" aria-label="Analytics period"><Link href="/dashboard?days=7">7 days</Link><Link href="/dashboard?days=30">30 days</Link></nav>
       <section className="mt-8"><h2 className="mb-3 text-lg font-semibold">My Apps</h2>
         {apps.length ? (
           <ul className="grid gap-3 md:grid-cols-2">
@@ -44,7 +46,7 @@ export default async function DashboardPage() {
                 <AppIcon app={a} size="sm" />
                 <div className="min-w-0 flex-1"><Link href={a.status === "published" ? `/apps/${a.slug}` : `/apps/${a.slug}/claim`} className="block truncate font-semibold hover:underline">{a.name}</Link>
                   <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground"><span className="capitalize">{a.status}</span>
-                    {a.verificationStatus === "verified" ? <span className="inline-flex items-center gap-1 text-brand"><ShieldCheck className="size-3" />Verified</span> : null}</p>
+                    {a.ownershipStatus === "verified_owner" ? <span className="inline-flex items-center gap-1 text-brand"><ShieldCheck className="size-3" />Ownership verified</span> : null}</p>
                   {a.moderationNote && <p className="mt-0.5 truncate text-xs text-muted-foreground">Note: {a.moderationNote}</p>}</div>
                 {a.ownershipStatus !== "verified_owner" && <Link href={`/apps/${a.slug}/claim`} className={cn(buttonVariants({ size: "sm", variant: "outline" }), "rounded-full")}><AlertTriangle className="size-3.5" />Verify ownership</Link>}
               </li>

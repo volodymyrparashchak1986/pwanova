@@ -7,7 +7,7 @@ import type { ActionResult } from "@/lib/types"
 
 export const fail = (error: string): ActionResult<never> => ({ ok: false, error })
 
-export const DEMO_MESSAGE = "PWANova is running in demo mode. Connect Supabase (see README) to enable this."
+export const DEMO_MESSAGE = "This feature needs a configured Supabase connection. See the README."
 
 /** Resolves the signed-in user and a session-bound client (RLS applies), applying a per-user rate limit. */
 type Client = Awaited<ReturnType<typeof createClient>>

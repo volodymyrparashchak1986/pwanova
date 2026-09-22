@@ -38,7 +38,7 @@ export default async function DeveloperPage({ params }: Props) {
         <span className="grid size-24 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-gradient text-3xl font-semibold text-white">
           {dev.avatarUrl
             // eslint-disable-next-line @next/next/no-img-element -- remote avatar
-            ? <img src={dev.avatarUrl} alt="" referrerPolicy="no-referrer" className="size-full object-cover" />
+            ? <img src={`/api/media?url=${encodeURIComponent(dev.avatarUrl)}`} alt="" referrerPolicy="no-referrer" className="size-full object-cover" />
             : dev.displayName.slice(0, 1)}
         </span>
         <div>

@@ -29,7 +29,7 @@ export default async function ClaimPage({ params }: { params: Promise<{ slug: st
   const published = await getAppBySlug(slug)
   const owned = !published && viewer ? await getOwnedAppBySlug(slug, viewer.id) : null
   const app = published
-    ? { id: published.id, slug: published.slug, name: published.name, domain: published.domain, iconUrl: published.iconUrl, ownershipStatus: published.ownershipStatus, ownerId: published.developer.id, status: "published" as string, moderationNote: null as string | null }
+    ? { url: published.url, id: published.id, slug: published.slug, name: published.name, domain: published.domain, iconUrl: published.iconUrl, ownershipStatus: published.ownershipStatus, ownerId: published.developer.id, status: "published" as string, moderationNote: null as string | null }
     : owned
   if (!app) notFound()
 
@@ -71,8 +71,8 @@ export default async function ClaimPage({ params }: { params: Promise<{ slug: st
         ) : (
           <div className="space-y-5">
             <div><h2 className="text-lg font-semibold">Prove you own {app.domain}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Choose one method. Once verified you become the verified owner and PWANova runs its quality checks for the PWANova Verified badge.</p></div>
-            <ClaimPanel appId={app.id} hasClaim={Boolean(token)} instructions={token ? claimInstructions(token, app.domain) : null} expiresAt={expiresAt} />
+              <p className="mt-1 text-sm text-muted-foreground">Publish the verification file on the exact app origin. Ownership verification and publication approval are separate. Technical observations are not a security audit.</p></div>
+            <ClaimPanel appId={app.id} hasClaim={Boolean(token)} instructions={token ? claimInstructions(token, app.url) : null} expiresAt={expiresAt} />
           </div>
         )}
       </div>

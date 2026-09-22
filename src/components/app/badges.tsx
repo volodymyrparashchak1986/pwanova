@@ -24,14 +24,14 @@ export function LaunchBadge({ source, linked, className }: { source: AppView["la
 }
 
 /** Shown only when verification_status = 'verified'. Never rendered speculatively. */
-export function VerifiedBadge({ app, className }: { app: Pick<AppView, "verificationStatus">; className?: string }) {
-  if (app.verificationStatus !== "verified") return null
+export function VerifiedBadge({ app, className }: { app: Pick<AppView, "ownershipStatus">; className?: string }) {
+  if (app.ownershipStatus !== "verified_owner") return null
   return (
     <Tooltip>
       <TooltipTrigger render={<span className={cn("inline-flex cursor-help items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand", className)} />}>
-        <BadgeCheck className="size-3.5" />PWANova Verified ✓
+        <BadgeCheck className="size-3.5" />Ownership verified
       </TooltipTrigger>
-      <TooltipContent className="max-w-56">Verified apps passed PWANova&apos;s basic ownership and web-app quality checks.</TooltipContent>
+      <TooltipContent className="max-w-56">The owner demonstrated control of the app origin. This is not a security audit or a guarantee of quality.</TooltipContent>
     </Tooltip>
   )
 }

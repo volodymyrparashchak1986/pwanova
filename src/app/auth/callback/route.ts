@@ -12,5 +12,5 @@ export async function GET(req: NextRequest) {
     const { error } = await sb.auth.exchangeCodeForSession(code)
     if (!error) return NextResponse.redirect(`${origin}${next}`)
   }
-  return NextResponse.redirect(`${origin}/sign-in?error=auth`)
+  return NextResponse.redirect(`${origin}/sign-in?error=auth&next=${encodeURIComponent(next)}`)
 }

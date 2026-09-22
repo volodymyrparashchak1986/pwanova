@@ -10,9 +10,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { cleanHttpUrl, cleanText } from "@/lib/security/sanitize"
 import { rateLimit } from "@/lib/security/rate-limit"
 import { verifyOwnership, type ClaimMethod } from "@/lib/verification"
-import { CLAIM_TTL_MS, generateClaimToken, isClaimExpired } from "@/lib/verification-utils"
+import { isClaimExpired } from "@/lib/verification-utils"
 import { BUILD_TOOLS, CATEGORIES, HOSTS, LAUNCH_SOURCES, PARTNER_COOKIE } from "@/lib/constants"
-import { domainOf, parsePublicUrl, slugify, UrlError } from "@/lib/url"
+import { canonicalAppUrl, domainOf, parsePublicUrl, slugify, UrlError } from "@/lib/url"
 import type { ActionResult } from "@/lib/types"
 
 const submitSchema = z.object({
@@ -30,7 +30,7 @@ const submitSchema = z.object({
 })
 export type SubmitInput = z.infer<typeof submitSchema>
 
-/** Create a listing. Ownership starts as `claim_pending`; PWANova Verified requires verification. */
+/** Create a pending listing; ownership and publication are approved separately. */
 export async function submitApp(input: SubmitInput): Promise<ActionResult<{ slug: string; status: "pending" | "published" }> & { existingSlug?: string }> {
   const parsed = submitSchema.safeParse(input)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
@@ -39,10 +39,10 @@ export async function submitApp(input: SubmitInput): Promise<ActionResult<{ slug
   const v = parsed.data
 
   let url: URL
-  try { url = parsePublicUrl(v.url) } catch (e) { return fail(e instanceof UrlError ? e.message : "Invalid URL.") }
+  try { url = parsePublicUrl(canonicalAppUrl(v.url)) } catch (e) { return fail(e instanceof UrlError ? e.message : "Invalid URL.") }
   const domain = domainOf(url)
 
-  const { data: dupe } = await ctx.sb.from("apps").select("slug").eq("domain", domain).maybeSingle()
+  const { data: dupe } = await ctx.sb.from("apps").select("slug").eq("url", url.href).maybeSingle()
   if (dupe) return { ok: false, error: "This app is already listed. You can claim it instead.", existingSlug: dupe.slug }
 
   // Never trust client-side analysis for trust signals: re-run on the server.
@@ -52,7 +52,7 @@ export async function submitApp(input: SubmitInput): Promise<ActionResult<{ slug
   const { data: taken } = await ctx.sb.from("apps").select("slug").like("slug", `${slug}%`)
   if (taken?.some((t) => t.slug === slug)) slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`
 
-  const requireApproval = process.env.SUBMIT_REQUIRES_APPROVAL === "true"
+  const requireApproval = true
   const { data: app, error } = await ctx.sb.from("apps").insert({
     developer_id: ctx.user.id, name: cleanText(v.name, 80), slug, tagline: cleanText(v.tagline, 120),
     description: cleanText(v.description, 4000), url: url.href, domain,
@@ -60,11 +60,12 @@ export async function submitApp(input: SubmitInput): Promise<ActionResult<{ slug
     build_tool: v.buildTool, hosting_provider: v.hostingProvider === "other" ? analysis.host : v.hostingProvider,
     status: requireApproval ? "pending" : "published",
   }).select("id, slug").single()
+  if (error?.code === "23505") return fail("This URL or name is already submitted. Contact moderation if you own the app.")
   if (error || !app) return fail(error?.message.includes("Rate limit") ? "You've submitted too many apps today." : "Could not create the listing.")
 
   // Claim token so the developer can verify right away, even while the listing is still `pending`
-  // moderation (RLS's claims_insert_own allows a claim on your own app at any status).
-  const { error: claimError } = await ctx.sb.from("app_claims").insert({ app_id: app.id, user_id: ctx.user.id })
+  // moderation (begin_app_claim authorizes the owner even while publication is pending).
+  const { error: claimError } = await ctx.sb.rpc("begin_app_claim", { p_app_id: app.id })
   if (claimError) console.error("submitApp: could not create claim token", claimError.message)
 
   const shots = (v.screenshots?.length ? v.screenshots : analysis.screenshots).map((s) => cleanHttpUrl(s)).filter((s): s is string => Boolean(s))
@@ -75,7 +76,7 @@ export async function submitApp(input: SubmitInput): Promise<ActionResult<{ slug
   const admin = createAdminClient()
   let partnerId: string | null = null
   if (admin) {
-    const { data: partner } = await admin.from("partners").select("id").or(`name.ilike.${launch.replace(/[^a-zA-Z ]/g, "")},slug.eq.${(partnerRef ?? "-").replace(/[^a-z0-9_-]/g, "")},referral_code.eq.${(partnerRef ?? "-").replace(/[^a-z0-9_-]/g, "")}`).limit(1).maybeSingle()
+    const { data: partner } = await admin.from("partners").select("id").eq("status", "active").eq("is_demo", false).or(`slug.eq.${(partnerRef ?? "-").replace(/[^a-z0-9_-]/g, "")},referral_code.eq.${(partnerRef ?? "-").replace(/[^a-z0-9_-]/g, "")}`).limit(1).maybeSingle()
     partnerId = partner?.id ?? null
   }
   const launchPartnerMatch = admin && partnerId && (await admin.from("partners").select("name").eq("id", partnerId).maybeSingle()).data?.name.toLowerCase() === launch.toLowerCase()
@@ -107,22 +108,15 @@ export async function startClaim(appId: string): Promise<ActionResult> {
   if (!app) return fail("App not found.")
   if (app.ownership_status === "verified_owner") return fail("This app already has a verified owner.")
 
-  const token = generateClaimToken()
-  const expiresAt = new Date(Date.now() + CLAIM_TTL_MS).toISOString()
-  const { data: existing } = await ctx.sb.from("app_claims").select("id, status").eq("app_id", appId).eq("user_id", ctx.user.id).maybeSingle()
-  const { error } = existing
-    ? await ctx.sb.from("app_claims").update({ token, expires_at: expiresAt, status: "pending", last_error: null, method: null }).eq("id", existing.id)
-    : await ctx.sb.from("app_claims").insert({ app_id: appId, user_id: ctx.user.id, token, expires_at: expiresAt })
+  const { error } = await ctx.sb.rpc("begin_app_claim", { p_app_id: appId })
   if (error) return fail("Could not start the claim.")
 
-  const admin = createAdminClient()
-  if (admin && app.ownership_status === "unclaimed") await admin.from("apps").update({ ownership_status: "claim_pending" }).eq("id", appId)
   revalidatePath(`/apps/${app.slug}`)
   revalidatePath(`/apps/${app.slug}/claim`)
   return { ok: true }
 }
 
-const methodSchema = z.enum(["meta_tag", "well_known", "dns_txt"])
+const methodSchema = z.enum(["well_known"])
 
 /**
  * Checks the claim token on the live site, then atomically assigns ownership via
@@ -139,31 +133,35 @@ export async function verifyClaim(appId: string, method: ClaimMethod): Promise<A
 
   const [{ data: claim }, { data: app }] = await Promise.all([
     ctx.sb.from("app_claims").select("id, token, expires_at, status").eq("app_id", appId).eq("user_id", ctx.user.id).maybeSingle(),
-    admin.from("apps").select("id, slug, url, domain, ownership_status").eq("id", appId).maybeSingle(),
+    admin.from("apps").select("id, slug, url, domain, ownership_status, developer_id").eq("id", appId).maybeSingle(),
   ])
   if (!claim || !app) return fail("Start a claim first.")
-  if (app.ownership_status === "verified_owner") return fail("This app already has a verified owner.")
+  if (app.ownership_status === "verified_owner") {
+    return app.developer_id === ctx.user.id
+      ? { ok: true, data: { verified: true }, message: "Ownership already verified." }
+      : fail("This app already has a verified owner.")
+  }
   if (claim.status === "verified") return { ok: true, data: { verified: true }, message: "Already verified." }
   if (isClaimExpired(claim.expires_at)) {
-    await admin.from("app_claims").update({ status: "expired" }).eq("id", claim.id)
+    await admin.from("app_claims").update({ status: "expired" }).eq("id", claim.id).eq("token", claim.token).eq("status", "pending")
     return fail("This claim token expired. Start the claim again to get a fresh one.")
   }
 
   const result = await verifyOwnership(app.url, app.domain, claim.token, method)
   if (!result.ok) {
-    await admin.from("app_claims").update({ last_error: result.error, status: "pending" }).eq("id", claim.id)
+    await admin.from("app_claims").update({ last_error: result.error }).eq("id", claim.id).eq("token", claim.token).eq("status", "pending")
     return fail(result.error ?? "Verification failed.")
   }
-  await admin.from("app_claims").update({ method }).eq("id", claim.id)
-  const { data: won, error: claimErr } = await admin.rpc("claim_app_ownership", { p_app_id: appId, p_user_id: ctx.user.id, p_claim_id: claim.id })
+  // Finalization records the method in the same transaction as ownership.
+  const { data: won, error: claimErr } = await admin.rpc("claim_app_ownership", { p_app_id: appId, p_user_id: ctx.user.id, p_claim_id: claim.id, p_token: claim.token, p_url: app.url })
   if (claimErr) return fail("Could not finalize ownership. Please try again.")
   if (!won) return fail("This app already has a verified owner.")
 
-  const checks = await runAppChecks(appId)
+  await runAppChecks(appId)
   revalidatePath(`/apps/${app.slug}`)
   revalidatePath(`/apps/${app.slug}/claim`)
   revalidatePath("/dashboard")
-  return { ok: true, data: { verified: Boolean(checks.verified) }, message: "Ownership verified." }
+  return { ok: true, data: { verified: true }, message: "Ownership verified." }
 }
 
 /** Owner-triggered quality re-check. */

@@ -29,6 +29,7 @@ export interface SafeResponse {
   finalUrl: string
   status: number
   headers: Headers
+  bytes: Uint8Array
   body: string
   ms: number
   redirectedToHttp: boolean
@@ -39,21 +40,30 @@ export async function safeFetch(
   input: string | URL,
   opts: { timeoutMs?: number; maxBytes?: number; maxRedirects?: number; accept?: string } = {},
 ): Promise<SafeResponse> {
+  return fetchWithPolicy(input, opts, undiciFetch)
+}
+
+/** Transport injection supports deterministic network-policy tests; production always uses the DNS-pinned agent. */
+export async function fetchWithPolicy(input: string | URL, opts: { timeoutMs?: number; maxBytes?: number; maxRedirects?: number; accept?: string }, transport: typeof undiciFetch): Promise<SafeResponse> {
   const { timeoutMs = 8000, maxBytes = 1_500_000, maxRedirects = 4, accept = "text/html,application/json;q=0.9,*/*;q=0.5" } = opts
   let url = parsePublicUrl(String(input))
   const startedHttps = url.protocol === "https:"
   const started = Date.now()
+  const signal = AbortSignal.timeout(timeoutMs)
   for (let hop = 0; hop <= maxRedirects; hop++) {
-    const res = await undiciFetch(url, {
+    const res = await transport(url, {
       dispatcher: agent,
       redirect: "manual",
-      signal: AbortSignal.timeout(timeoutMs),
+      signal,
       headers: { "user-agent": "PWANovaBot/1.0 (+https://pwanova.app)", accept },
     })
     const location = res.headers.get("location")
     if (res.status >= 300 && res.status < 400 && location) {
-      url = parsePublicUrl(new URL(location, url).href)
       await res.body?.cancel()
+      if (hop === maxRedirects) throw new UrlError("Redirects are not permitted for this request.")
+      const next = parsePublicUrl(new URL(location, url).href)
+      if (url.protocol === "https:" && next.protocol === "http:") throw new UrlError("HTTPS downgrade is forbidden.")
+      url = next
       continue
     }
     const reader = res.body?.getReader()
@@ -63,13 +73,14 @@ export async function safeFetch(
       const { done, value } = await reader.read()
       if (done) break
       received += value.byteLength
-      if (received > maxBytes) { await reader.cancel(); break }
+      if (received > maxBytes) { await reader.cancel(); throw new UrlError("Response exceeds size limit.") }
       chunks.push(value)
     }
     return {
       finalUrl: url.href,
       status: res.status,
       headers: res.headers as unknown as Headers,
+      bytes: Buffer.concat(chunks),
       body: Buffer.concat(chunks).toString("utf8"),
       ms: Date.now() - started,
       redirectedToHttp: startedHttps && url.protocol === "http:",

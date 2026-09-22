@@ -77,7 +77,7 @@ export function ShipForm({ userId }: { userId: string }) {
     setError(null)
     startSubmit(async () => {
       const r = await submitApp({ url, name, tagline, description, category, buildTool: build, hostingProvider: host, launchSource: launch, launchUrl, iconUrl, screenshots: shots })
-      if (r.ok && r.data) { toast.success(r.data.status === "pending" ? "Submitted for review. Verify ownership while you wait." : "Your app is listed. Verify ownership to earn PWANova Verified."); router.push(`/apps/${r.data.slug}/claim`) }
+      if (r.ok && r.data) { toast.success(r.data.status === "pending" ? "Submitted for review. Verify ownership while you wait." : "Your app is listed. Verify ownership to earn Ownership verified."); router.push(`/apps/${r.data.slug}/claim`) }
       else if (!r.ok) setError({ text: r.error, existing: r.existingSlug })
     })
   }
@@ -107,7 +107,7 @@ export function ShipForm({ userId }: { userId: string }) {
               ["Manifest", analysis.checks.manifest_ok], ["Installable", analysis.checks.installable], ["Service worker", analysis.checks.service_worker_ok],
             ].map(([l, ok]) => (
               <span key={String(l)} className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium", ok ? "bg-ok/15 text-ok" : "bg-muted text-muted-foreground")}>
-                {ok ? <CheckCircle2 className="size-3.5" /> : <X className="size-3.5" />}{String(l)}
+                {ok ? <CheckCircle2 className="size-3.5" /> : <X className="size-3.5" />}{String(l)}{ok == null ? " · Unknown" : ""}
               </span>
             ))}
             {analysis.hostSignal && <span className="text-xs text-muted-foreground">Host detected: {analysis.hostSignal}</span>}
@@ -137,7 +137,7 @@ export function ShipForm({ userId }: { userId: string }) {
                 {shots.map((s, i) => (
                   <span key={s} className="relative">
                     {/* eslint-disable-next-line @next/next/no-img-element -- remote preview */}
-                    <img src={s} alt="" referrerPolicy="no-referrer" className="h-28 w-16 rounded-lg border border-border object-cover" />
+                    <img src={`/api/media?url=${encodeURIComponent(s)}`} alt="" referrerPolicy="no-referrer" className="h-28 w-16 rounded-lg border border-border object-cover" />
                     <button type="button" aria-label="Remove screenshot" onClick={() => setShots((x) => x.filter((_, k) => k !== i))} className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full bg-foreground text-background"><X className="size-3" /></button>
                   </span>
                 ))}
@@ -148,7 +148,7 @@ export function ShipForm({ userId }: { userId: string }) {
 
           <div className="flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center">
             <Button type="submit" size="lg" className="rounded-full" disabled={submitting || uploading}>{submitting && <Loader2 className="size-4 animate-spin" />}Ship Your App</Button>
-            <p className="text-xs text-muted-foreground">Your listing goes live immediately. Ownership starts unverified; verify your domain next to unlock developer replies and PWANova Verified.</p>
+            <p className="text-xs text-muted-foreground">Your listing enters moderation. Verify ownership to unlock developer replies; publication requires separate approval.</p>
           </div>
         </form>
       )}
