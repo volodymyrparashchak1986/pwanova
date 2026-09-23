@@ -33,14 +33,14 @@ export function SignInForm({ next }: { next: string }) {
 
   return (
     <div className="space-y-3">
-      <Button variant="outline" size="lg" className="w-full" onClick={() => oauth("google")} disabled={state === "loading"}><GoogleIcon />Continue with Google</Button>
-      <Button variant="outline" size="lg" className="w-full" onClick={() => oauth("github")} disabled={state === "loading"}><GitHubIcon />Continue with GitHub</Button>
+      {process.env.NEXT_PUBLIC_AUTH_GOOGLE === "true" && <Button variant="outline" size="lg" className="w-full" onClick={() => oauth("google")} disabled={state === "loading"}><GoogleIcon />Continue with Google</Button>}
+      {process.env.NEXT_PUBLIC_AUTH_GITHUB === "true" && <Button variant="outline" size="lg" className="w-full" onClick={() => oauth("github")} disabled={state === "loading"}><GitHubIcon />Continue with GitHub</Button>}
       <div className="flex items-center gap-3 py-2 text-xs text-muted-foreground"><span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" /></div>
       {state === "sent" ? (
         <p role="status" className="rounded-2xl bg-ok/10 p-4 text-sm">Check <strong>{email}</strong> for your magic link.</p>
       ) : (
         <form onSubmit={magic} className="space-y-3">
-          <Input type="email" required placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" className="h-12 rounded-xl px-4 text-base" />
+          <Input type="email" maxLength={254} required placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" className="h-12 rounded-xl px-4 text-base" />
           <Button type="submit" size="lg" className="w-full" disabled={state === "loading"}>{state === "loading" ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}Email me a magic link</Button>
         </form>
       )}

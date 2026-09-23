@@ -18,6 +18,9 @@ if (!url || !anonKey || !serviceKey) {
   process.exit(2)
 }
 
+if (!["127.0.0.1", "localhost"].includes(new URL(url).hostname)) {
+  throw new Error("This verifier is restricted to local Supabase. Production writes are forbidden.")
+}
 const opts = { auth: { persistSession: false, autoRefreshToken: false } }
 const admin = createClient(url, serviceKey, opts)
 const anon = () => createClient(url, anonKey, opts)
@@ -141,6 +144,7 @@ async function main() {
     appId = res.data!.id
     appIds.push(appId)
     const a = res.data!
+    expect(a.status === "pending", "direct INSERT self-published")
     expect(a.ownership_status === "claim_pending" && a.verification_status === "unverified" && !a.is_featured && !a.is_pwa && !a.is_installable, `forged flags survived: ${JSON.stringify(a)}`)
   })
   await check("cannot create an app on behalf of someone else", async () => {
@@ -158,6 +162,7 @@ async function main() {
     expect(data?.name !== "hijacked", "another user edited the app")
   })
   await check("published app is publicly visible in apps_public", async () => {
+    ok(await adminUser.client.rpc("moderate", { p_kind: "approve", p_id: appId }), "approve")
     const { data } = await pub.from("apps_public").select("slug").eq("slug", slug)
     expect(data?.length === 1, "new app is not visible")
   })
@@ -176,9 +181,9 @@ async function main() {
   // ------------------------------------------------------------------ claim
   console.log("\nClaim flow")
   await check("claim token is generated and visible only to its owner", async () => {
-    ok(await dev.client.from("app_claims").insert({ app_id: appId, user_id: dev.id }), "create claim")
+    ok(await dev.client.rpc("begin_app_claim", { p_app_id: appId }), "create claim")
     const mine = await dev.client.from("app_claims").select("token").eq("app_id", appId).single()
-    expect(/^[0-9a-f]{32}$/.test(mine.data?.token ?? ""), `token format: ${mine.data?.token}`)
+    expect(/^[0-9a-f]{64}$/.test(mine.data?.token ?? ""), "invalid token format")
     const theirs = await rater.client.from("app_claims").select("token").eq("app_id", appId)
     expect((theirs.data ?? []).length === 0, "another user can read the claim token")
   })
@@ -334,6 +339,44 @@ async function main() {
     const { data } = await admin.from("apps").select("verification_status, is_pwa").eq("id", appId).single()
     expect(data?.verification_status === "verified" && data.is_pwa, "service role could not write protected columns")
   })
+  console.log("\nClosed-beta adversarial API checks")
+  const devB = await makeUser("owner-b")
+  await check("real concurrent claims: wrong/expired tokens fail and exactly one owner wins", async () => {
+    const race = ok(await admin.from("apps").insert({ name: "Claim race", slug: `verify-race-${run}`, url: `https://race-${run}.example/`, domain: `race-${run}.example`, status: "published", ownership_status: "unclaimed" }).select("id,url").single(), "race fixture").data!
+    appIds.push(race.id)
+    ok(await dev.client.rpc("begin_app_claim", { p_app_id: race.id }), "claim A")
+    ok(await devB.client.rpc("begin_app_claim", { p_app_id: race.id }), "claim B")
+    const claims = ok(await admin.from("app_claims").select("id,user_id,token").eq("app_id", race.id), "claims").data!
+    const claim = (c: typeof claims[number], token = c.token) => admin.rpc("claim_app_ownership", { p_app_id: race.id, p_user_id: c.user_id, p_claim_id: c.id, p_token: token, p_url: race.url })
+    expect((await claim(claims[0], "wrong")).data === false, "wrong token accepted")
+    await admin.from("app_claims").update({ expires_at: new Date(Date.now()-1000).toISOString() }).eq("id", claims[0].id)
+    expect((await claim(claims[0])).data === false, "expired token accepted")
+    await admin.from("app_claims").update({ expires_at: new Date(Date.now()+60000).toISOString() }).eq("id", claims[0].id)
+    const results = await Promise.all(claims.map(c => claim(c)))
+    expect(results.every(r => !r.error), "claim RPC failed")
+    expect(results.filter(r => r.data === true).length === 1, "ownership race did not produce exactly one winner")
+    expect((await claim(claims[0])).data === false && (await claim(claims[1])).data === false, "claim replay accepted")
+    denied(await dev.client.rpc("claim_app_ownership", { p_app_id: race.id, p_user_id: dev.id, p_claim_id: claims[0].id, p_token: claims[0].token, p_url: race.url }), /permission|PGRST|42501/i)
+    await admin.from("apps").update({ url: `https://race-${run}.example/new` }).eq("id", race.id)
+    const changed = (await admin.from("apps").select("status,ownership_status").eq("id", race.id).single()).data!
+    expect(changed.status === "pending" && changed.ownership_status === "claim_pending", "URL change did not reset trust/publication")
+  })
+  await check("partner membership cannot be self-assigned; metrics are private and real zeros", async () => {
+    const partner = ok(await admin.from("partners").insert({ name: "Test launch board", slug: `verify-${run}`, referral_code: `verify-${run}` }).select("id").single(), "partner").data!
+    try {
+      denied(await rater.client.from("partner_members").insert({ partner_id: partner.id, user_id: rater.id }), /42501|row-level/)
+      ok(await adminUser.client.from("partner_members").insert({ partner_id: partner.id, user_id: dev.id }), "membership")
+      const own = ok(await dev.client.rpc("partner_metrics", { p_days: 30 }), "partner metrics").data
+      expect(own?.length === 1 && Number(own[0].page_views) === 0, "missing honest empty partner metrics")
+      expect((await rater.client.rpc("partner_metrics", { p_days: 30 })).data?.length === 0, "another user sees partner metrics")
+    } finally { await admin.from("partners").delete().eq("id", partner.id) }
+  })
+  await check("scanner rejects stale URL results and user-authored check status", async () => {
+    denied(await dev.client.rpc("record_app_checks", { p_app_id: appId, p_url: "https://wrong.example/", p_checks: {}, p_details: {} }), /permission|PGRST|42501/i)
+    const result = await admin.rpc("record_app_checks", { p_app_id: appId, p_url: "https://wrong.example/", p_checks: {reachable:true}, p_details: {} })
+    expect(!result.error && result.data === false, "stale scanner result accepted")
+  })
+
 }
 
 async function cleanup() {

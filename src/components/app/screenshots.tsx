@@ -1,7 +1,8 @@
 import { hueFor } from "@/lib/format"
 
 /** Horizontal swipe strip. Uses real screenshots when present, otherwise generated placeholders. */
-export function Screenshots({ app }: { app: { slug: string; name: string; screenshots: string[] } }) {
+export function Screenshots({ app }: { app: { slug: string; name: string; screenshots: string[]; isDemo?: boolean } }) {
+  if (!app.screenshots.length && !app.isDemo) return <p className="rounded-2xl border border-dashed border-border p-5 text-sm text-muted-foreground">No screenshots provided yet.</p>
   const h = hueFor(app.slug)
   const items = app.screenshots.length ? app.screenshots : [0, 1, 2, 3]
   return (
@@ -10,7 +11,7 @@ export function Screenshots({ app }: { app: { slug: string; name: string; screen
         <div key={i} className="aspect-[9/19] w-44 shrink-0 snap-center overflow-hidden rounded-[1.6rem] border border-border bg-card shadow-soft md:w-52">
           {typeof s === "string" ? (
             // eslint-disable-next-line @next/next/no-img-element -- remote screenshots
-            <img src={s} alt={`${app.name} screenshot ${i + 1}`} loading="lazy" referrerPolicy="no-referrer" className="size-full object-cover" />
+            <img src={`/api/media?url=${encodeURIComponent(s)}`} alt={`${app.name} screenshot ${i + 1}`} loading="lazy" referrerPolicy="no-referrer" className="size-full object-cover" />
           ) : (
             <div className="flex size-full flex-col gap-2.5 p-3.5" style={{ backgroundImage: `linear-gradient(160deg, oklch(0.93 0.05 ${(h + i * 30) % 360}), oklch(0.85 0.09 ${(h + 60 + i * 30) % 360}))` }} role="img" aria-label="Placeholder screenshot">
               <div className="h-3 w-1/3 rounded-full bg-black/15" />

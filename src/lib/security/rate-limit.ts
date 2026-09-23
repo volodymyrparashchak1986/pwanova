@@ -1,4 +1,5 @@
 import "server-only"
+import { createHash } from "node:crypto"
 import { headers } from "next/headers"
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -6,7 +7,7 @@ const memory = new Map<string, { count: number; reset: number }>()
 
 /**
  * Returns true when the action is allowed.
- * Uses the shared DB counter when a service role key exists, otherwise a per-instance in-memory counter.
+ * Uses the shared DB counter when a service role key exists, otherwise a development-only in-memory counter. Production fails closed.
  */
 export async function rateLimit(key: string, max: number, windowSeconds: number): Promise<boolean> {
   const admin = createAdminClient()
@@ -14,6 +15,7 @@ export async function rateLimit(key: string, max: number, windowSeconds: number)
     const { data, error } = await admin.rpc("check_rate_limit", { p_key: key, p_max: max, p_window_seconds: windowSeconds })
     if (!error && typeof data === "boolean") return data
   }
+  if (process.env.NODE_ENV === "production") return false // fail closed; no process-local production limits
   const now = Date.now()
   const entry = memory.get(key)
   if (!entry || entry.reset < now) {
@@ -27,5 +29,6 @@ export async function rateLimit(key: string, max: number, windowSeconds: number)
 
 export async function clientIp(): Promise<string> {
   const h = await headers()
-  return (h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "unknown").trim()
+  const ip = (h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "unknown").trim()
+  return createHash("sha256").update(`${process.env.SUPABASE_SERVICE_ROLE_KEY ?? "local"}:${new Date().toISOString().slice(0,10)}:${ip}`).digest("hex")
 }

@@ -10,17 +10,28 @@ import { Textarea } from "@/components/ui/textarea"
 import { deleteReview, saveReview } from "@/actions/engagement"
 import { cn } from "@/lib/utils"
 
-interface Draft { rating: number; title: string; body: string }
+interface Draft { rating: number; title: string; body: string; id?: string; ownerId?: string | null }
 const draftKey = (appId: string) => `pwn:draft:review:${appId}`
 
-function readDraft(appId: string): Draft | null {
+function readDraft(appId: string, viewerId: string | null): Draft | null {
   try {
     const raw = localStorage.getItem(draftKey(appId))
-    return raw ? (JSON.parse(raw) as Draft) : null
+    if (!raw) return null
+    const d = JSON.parse(raw)
+    if (!d || typeof d.body !== "string" || d.body.length > 3000 || typeof d.title !== "string" || d.title.length > 100 || !Number.isInteger(d.rating) || d.rating < 0 || d.rating > 5 || Date.now() - d.savedAt > 86400000 || !Number.isFinite(d.savedAt)) return null
+    const recovery = new URLSearchParams(location.search).get("reviewDraft")
+    if (d.ownerId !== viewerId && !(d.ownerId === null && recovery === d.id)) return null
+    return d as Draft
   } catch { return null } // private mode / storage disabled: drafts just don't persist, nothing else breaks
 }
-function writeDraft(appId: string, d: Draft) {
-  try { localStorage.setItem(draftKey(appId), JSON.stringify(d)) } catch { /* best-effort only */ }
+function writeDraft(appId: string, d: Draft, ownerId: string | null): string {
+  let id = crypto.randomUUID() as string
+  try {
+    const previous = JSON.parse(localStorage.getItem(draftKey(appId)) ?? "null")
+    if (previous?.ownerId === ownerId && typeof previous.id === "string" && /^[0-9a-f-]{36}$/i.test(previous.id)) id = previous.id
+  } catch { /* invalid stored draft is replaced */ }
+  try { localStorage.setItem(draftKey(appId), JSON.stringify({ ...d, id, ownerId, savedAt: Date.now() })) } catch { /* best-effort only */ }
+  return id
 }
 function clearDraft(appId: string) {
   try { localStorage.removeItem(draftKey(appId)) } catch { /* best-effort only */ }
@@ -39,13 +50,13 @@ const noSubscribe = () => () => {}
  * Nothing here needs to react to the draft changing later in the same session, so a small per-instance
  * cache keyed by (appId, skip) is enough to make it stable.
  */
-function useReviewDraft(appId: string, skip: boolean): Draft | null {
+function useReviewDraft(appId: string, skip: boolean, viewerId: string | null): Draft | null {
   const cache = useRef<{ key: string; value: Draft | null } | null>(null)
   return useSyncExternalStore(
     noSubscribe,
     () => {
-      const key = `${appId}:${skip}`
-      if (!cache.current || cache.current.key !== key) cache.current = { key, value: skip ? null : readDraft(appId) }
+      const key = `${appId}:${skip}:${viewerId}`
+      if (!cache.current || cache.current.key !== key) cache.current = { key, value: skip ? null : readDraft(appId, viewerId) }
       return cache.current.value
     },
     () => null,
@@ -53,18 +64,18 @@ function useReviewDraft(appId: string, skip: boolean): Draft | null {
 }
 
 interface Props {
-  appId: string; slug: string; signedIn: boolean
-  existing: { rating: number; title: string | null; body: string } | null; defaultRating: number | null
+  appId: string; slug: string; signedIn: boolean; viewerId: string | null
+  existing: { rating: number | null; title: string | null; body: string } | null; defaultRating: number | null
 }
 
 export function ReviewForm(props: Props) {
-  const draft = useReviewDraft(props.appId, Boolean(props.existing))
+  const draft = useReviewDraft(props.appId, Boolean(props.existing), props.viewerId)
   // Remounting when a draft is (or isn't) found lets the inner form seed its state fresh from it,
   // without ever calling setState from inside an effect.
   return <ReviewFormInner key={draft ? "restored" : "fresh"} {...props} draft={draft} />
 }
 
-function ReviewFormInner({ appId, slug, signedIn, existing, defaultRating, draft }: Props & { draft: Draft | null }) {
+function ReviewFormInner({ appId, slug, signedIn, viewerId, existing, defaultRating, draft }: Props & { draft: Draft | null }) {
   const router = useRouter()
   const [open, setOpen] = useState(Boolean(draft))
   // stars the user picked inside this form; otherwise fall back to their saved rating (which can change via the RateBox)
@@ -78,9 +89,9 @@ function ReviewFormInner({ appId, slug, signedIn, existing, defaultRating, draft
   useEffect(() => {
     if (!open || existing) return
     if (!body && !title) return
-    const t = setTimeout(() => writeDraft(appId, { rating, title, body }), 400)
+    const t = setTimeout(() => writeDraft(appId, { rating, title, body }, viewerId), 400)
     return () => clearTimeout(t)
-  }, [open, existing, appId, rating, title, body])
+  }, [open, existing, appId, rating, title, body, viewerId])
 
   if (!open) {
     return <Button variant="outline" className="rounded-full" onClick={() => setOpen(true)}>{existing ? "Edit your review" : "Write a review"}</Button>
@@ -89,8 +100,8 @@ function ReviewFormInner({ appId, slug, signedIn, existing, defaultRating, draft
     <form className="space-y-3 rounded-2xl border border-border bg-card p-4" onSubmit={(e) => {
       e.preventDefault()
       if (!signedIn) {
-        writeDraft(appId, { rating, title, body }) // preserve it across the sign-in round trip
-        router.push(`/sign-in?next=${encodeURIComponent(`/apps/${slug}#reviews`)}`)
+        const recovery = writeDraft(appId, { rating, title, body }, null) // opaque capability; contains no review text
+        router.push(`/sign-in?next=${encodeURIComponent(`/apps/${slug}?reviewDraft=${recovery}#reviews`)}`)
         return
       }
       start(async () => {
@@ -114,7 +125,7 @@ function ReviewFormInner({ appId, slug, signedIn, existing, defaultRating, draft
         {existing && <Button type="button" variant="destructive" className="ml-auto" disabled={pending} onClick={() => start(async () => {
           const r = await deleteReview(appId)
           if (r.ok) { toast.success(r.message); setOpen(false); setBody(""); setTitle("") } else toast.error(r.error)
-        })}>Delete</Button>}
+        })}>Delete review text</Button>}
       </div>
     </form>
   )

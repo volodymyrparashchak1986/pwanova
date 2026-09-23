@@ -26,7 +26,7 @@ export function AppIcon({ app, size = "md", className }: { app: { name: string; 
       {app.name.slice(0, 1).toUpperCase()}
       {app.iconUrl && !broken && (
         // eslint-disable-next-line @next/next/no-img-element -- remote user icons; failure falls back to the gradient tile
-        <img ref={img} src={app.iconUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setBroken(true)} className="absolute inset-0 size-full bg-card object-cover" />
+        <img ref={img} src={`/api/media?url=${encodeURIComponent(app.iconUrl)}`} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setBroken(true)} className="absolute inset-0 size-full bg-card object-cover" />
       )}
     </span>
   )

@@ -1,11 +1,12 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { BadgeCheck, BarChart3, Download, Handshake, Link2, MessageSquare, ShieldCheck, Coins } from "lucide-react"
+import { BadgeCheck, BarChart3, Download, Handshake, Link2, MessageSquare, ShieldCheck } from "lucide-react"
 import { PageShell } from "@/components/app/section-header"
 import { PartnerKit } from "@/components/app/partner-kit"
 import { buttonVariants } from "@/components/ui/button"
-import { getApps } from "@/lib/data"
+import { getApps, getViewer } from "@/lib/data"
 import { exampleApp } from "@/lib/partner-example"
+import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = { title: "Launch board partners", description: "You help apps launch. PWANova helps them keep growing. Add ratings, verification and install guidance to your launch platform." }
@@ -14,15 +15,16 @@ const BENEFITS = [
   [BadgeCheck, "Free rating badge", "Embed a live PWANova rating next to every listing."],
   [ShieldCheck, "Verified app metadata", "Ownership and web-app quality signals you don't have to build."],
   [Download, "Installation guidance", "Platform-aware install help for iOS, Android and desktop."],
-  [BarChart3, "App quality data", "HTTPS, manifest, installability and health, via API."],
+  [BarChart3, "App quality data", "Observed HTTPS, manifest and reachability; browser capabilities remain Unknown until tested."],
   [MessageSquare, "Ratings & reviews", "Ongoing reputation that outlives launch day."],
-  [Link2, "Attribution", "“Launched on you” shown on every app you send."],
+  [Link2, "Attribution", "Launch history stays unchanged; referral traffic is recorded separately."],
   [Handshake, "Referral traffic", "Visitors from your links are tracked back to you."],
-  [Coins, "Future revenue share", "Referral revenue when developers you send upgrade — schema is ready, billing is not built yet."],
 ] as const
 
 export default async function PartnersPage() {
   const apps = await getApps({ sort: "top", limit: 8 })
+  const viewer = await getViewer()
+  const metrics = viewer ? (await (await createClient()).rpc("partner_metrics", { p_days: 30 })).data ?? [] : []
   return (
     <PageShell className="max-w-5xl">
       <div className="mx-auto max-w-3xl text-center">
@@ -38,7 +40,7 @@ export default async function PartnersPage() {
       <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {BENEFITS.map(([Icon, t, b]) => <div key={t} className="rounded-3xl border border-border bg-card p-6"><Icon className="size-6 text-brand" /><h2 className="mt-3 font-semibold">{t}</h2><p className="mt-1 text-sm text-muted-foreground">{b}</p></div>)}
       </div>
-      <p className="mt-6 text-center text-sm text-muted-foreground">Launch boards are partners, not competitors. Product Hunt, Peerlist and friends bring the launch moment; PWANova keeps the app discoverable after it. Integrating doesn&apos;t mean moving your catalog — your page, your brand and your upvotes stay exactly where they are; PWANova adds durable reviews, ownership verification and install guidance next to them.</p>
+      <p className="mt-6 text-center text-sm text-muted-foreground">Launch boards provide the launch experience; PWANova keeps apps discoverable afterward. No third-party platform is represented as an official partner without its consent. Integrating doesn&apos;t mean moving your catalog — your page, your brand and your upvotes stay exactly where they are; PWANova adds durable reviews, ownership verification and install guidance next to them.</p>
 
       <section className="mt-16">
         <h2 className="text-3xl font-semibold tracking-tight">Try it</h2>
@@ -46,6 +48,7 @@ export default async function PartnersPage() {
         <div className="mt-5"><PartnerKit apps={apps.length ? apps.map((a) => ({ slug: a.slug, name: a.name })) : [{ slug: exampleApp.slug, name: `${exampleApp.name} (example)` }]} /></div>
       </section>
 
+      {metrics.length > 0 && <section className="mt-12"><h2 className="text-xl font-semibold">Your integrations · 30 days</h2><p>Event counts, not unique users. No activity inside external apps is measured.</p>{metrics.map((m: { partner: string; referral_code: string; page_views: number; outbound_opens: number; guidance_views: number }) => <div key={m.referral_code} className="mt-4 rounded-xl border p-4"><h3>{m.partner}</h3><p>{m.page_views} page views → {m.outbound_opens} outbound opens → {m.guidance_views} guidance views</p><PartnerKit apps={apps.map((a) => ({ slug: a.slug, name: a.name }))} refCode={m.referral_code} /></div>)}</section>}
       <section id="api" className="mt-20 scroll-mt-24">
         <h2 className="text-3xl font-semibold tracking-tight">Public API</h2>
         <p className="mt-2 text-muted-foreground">Look up a listing by domain. Public fields only — no email, no user IDs, no verification tokens. CORS-enabled, cached, rate limited to 60 requests per minute per IP. A hidden, suspended, pending or rejected app 404s here, in the badge and in the embed, the same as it does on the site.</p>

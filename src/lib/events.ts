@@ -16,6 +16,12 @@ export async function recordEvent(input: {
 }) {
   const admin = createAdminClient()
   if (!admin) return
+  const { data: app } = await admin.from("apps").select("status,is_demo").eq("id", input.appId).maybeSingle()
+  if (!app || app.status !== "published" || app.is_demo) return
+  if (input.partnerId) {
+    const { data: partner } = await admin.from("partners").select("id").eq("id", input.partnerId).eq("status", "active").eq("is_demo", false).maybeSingle()
+    if (!partner) input.partnerId = null
+  }
   await admin.from("app_events").insert({
     app_id: input.appId,
     user_id: input.userId ?? null,

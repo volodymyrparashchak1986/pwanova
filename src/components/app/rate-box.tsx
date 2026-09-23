@@ -4,7 +4,7 @@ import { useState, useTransition } from "react"
 import Link from "next/link"
 import { Star } from "lucide-react"
 import { toast } from "sonner"
-import { rateApp } from "@/actions/engagement"
+import { rateApp, deleteRating } from "@/actions/engagement"
 import { cn } from "@/lib/utils"
 
 export function RateBox({ appId, slug, signedIn, isOwner, initial }: { appId: string; slug: string; signedIn: boolean; isOwner: boolean; initial: number | null }) {
@@ -36,6 +36,10 @@ export function RateBox({ appId, slug, signedIn, isOwner, initial }: { appId: st
           </button>
         ))}
       </div>
+      {value > 0 && <button type="button" className="mt-2 text-xs underline" disabled={pending} onClick={() => start(async () => {
+        const result = await deleteRating(appId)
+        if (result.ok) { setValue(0); toast.success(result.message) } else toast.error(result.error)
+      })}>Remove rating (keep review text)</button>}
     </div>
   )
 }

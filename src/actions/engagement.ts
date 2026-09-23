@@ -22,8 +22,6 @@ export async function rateApp(appId: string, rating: number): Promise<ActionResu
 
   const { error } = await ctx.sb.from("ratings").upsert({ app_id: appId, user_id: ctx.user.id, rating }, { onConflict: "app_id,user_id" })
   if (error) return fail("Could not save your rating.")
-  // keep an existing review's stars consistent with the rating
-  await ctx.sb.from("reviews").update({ rating }).eq("app_id", appId).eq("user_id", ctx.user.id)
   await recordEvent({ appId, type: "rating", userId: ctx.user.id, metadata: { rating } })
   revalidatePath(`/apps/${app.slug}`)
   return { ok: true, message: "Thanks for rating!" }
@@ -62,7 +60,7 @@ export async function deleteReview(appId: string): Promise<ActionResult> {
   const { error } = await ctx.sb.from("reviews").delete().eq("app_id", appId).eq("user_id", ctx.user.id)
   if (error) return fail("Could not delete your review.")
   if (app) revalidatePath(`/apps/${app.slug}`)
-  return { ok: true, message: "Review deleted." }
+  return { ok: true, message: "Review text deleted. Your rating is unchanged." }
 }
 
 export async function toggleHelpful(reviewId: string, slug: string): Promise<ActionResult<{ helpful: boolean }>> {
@@ -123,4 +121,16 @@ export async function toggleFavorite(appId: string): Promise<ActionResult<{ save
   if (!existing) await recordEvent({ appId, type: "favorite", userId: ctx.user.id })
   revalidatePath("/saved")
   return { ok: true, data: { saved: !existing } }
+}
+
+/** Removing stars is independent of removing written feedback. */
+export async function deleteRating(appId: string): Promise<ActionResult> {
+  if (!z.string().uuid().safeParse(appId).success) return fail("Invalid app.")
+  const ctx = await authed("rating-delete", { max: 30, windowSeconds: 3600 })
+  if (!ctx.ok) return fail(ctx.error)
+  const app = await appMeta(ctx.sb, appId)
+  const { error } = await ctx.sb.from("ratings").delete().eq("app_id", appId).eq("user_id", ctx.user.id)
+  if (error) return fail("Could not remove rating.")
+  if (app) revalidatePath(`/apps/${app.slug}`)
+  return { ok: true, message: "Rating removed. Your review text is unchanged." }
 }

@@ -14,8 +14,8 @@ function Mark({ v }: { v: boolean | null | undefined }) {
 export function QualityPanel({ app }: { app: AppView }) {
   const c = app.checks
   const rows: [string, boolean | null | undefined][] = [
-    ["HTTPS", c?.httpsOk], ["Responsive", c?.responsive], ["Mobile optimized", c?.mobileOptimized],
-    ["PWA Manifest", c?.manifestOk], ["Installable", c?.installable], ["Service Worker", c?.serviceWorkerOk],
+    ["URL reachable", c?.reachable], ["HTTPS checked", c?.httpsOk], ["Responsive", c?.responsive], ["Mobile optimized", c?.mobileOptimized],
+    ["Manifest detected", c?.manifestOk], ["Installable", c?.installable], ["Service Worker", c?.serviceWorkerOk],
     ["Offline support", c?.offlineSupport], ["Push support", c?.pushSupport],
   ]
   const [label, dot] = HEALTH[app.healthStatus]
@@ -30,7 +30,8 @@ export function QualityPanel({ app }: { app: AppView }) {
           {rows.map(([name, v]) => <li key={name} className="flex items-center justify-between border-b border-border/60 pb-2.5 text-sm"><span>{name}</span><Mark v={v} /></li>)}
         </ul>
       ) : <p className="mt-3 text-sm text-muted-foreground">No quality check has run for this app yet.</p>}
-      <p className="mt-4 text-xs text-muted-foreground">Offline and push support can&apos;t be verified from outside the app, so they show as unknown (—) rather than guessed.</p>
+      {c?.evidence && <details className="mt-3 text-xs text-muted-foreground"><summary>Method and evidence: {c.method}</summary><ul>{Object.entries(c.evidence).map(([name, reason]) => <li key={name}>{name}: {reason}</li>)}</ul></details>}
+      <p className="mt-4 text-xs text-muted-foreground">Checks use bounded HTTP requests and never execute app code. Browser installation, responsive layout, offline and push capabilities remain Unknown until tested in a specific browser. HTTPS is not a security audit.</p>
     </div>
   )
 }

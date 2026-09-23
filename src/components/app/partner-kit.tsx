@@ -10,7 +10,7 @@ function CopyBlock({ code }: { code: string }) {
   return (
     <div className="relative">
       <pre className="overflow-x-auto rounded-2xl bg-[oklch(0.17_0.03_275)] p-5 pr-12 text-[13px] leading-relaxed text-white/90"><code>{code}</code></pre>
-      <button aria-label="Copy snippet" onClick={() => { navigator.clipboard.writeText(code); toast.success("Copied") }} className="absolute top-4 right-4 rounded-lg bg-white/10 p-1.5 text-white/80 hover:bg-white/20"><Copy className="size-4" /></button>
+      <button aria-label="Copy snippet" onClick={() => { navigator.clipboard.writeText(code).then(() => toast.success("Copied")).catch(() => toast.error("Copy failed. Select and copy the snippet manually.")) }} className="absolute top-4 right-4 rounded-lg bg-white/10 p-1.5 text-white/80 hover:bg-white/20"><Copy className="size-4" /></button>
     </div>
   )
 }
@@ -26,10 +26,10 @@ export function PartnerKit({ apps, refCode }: { apps: { slug: string; name: stri
 
   const snippet = useMemo(() => {
     if (format === "iframe") {
-      return `<iframe src="${siteUrl}/embed/app/${slug}?theme=${theme}"\n        width="260" height="72" style="border:0" loading="lazy"\n        title="${slug} on PWANova"></iframe>`
+      return `<iframe src="${siteUrl}/embed/app/${slug}?theme=${theme}${refCode ? `&ref=${encodeURIComponent(refCode)}` : ""}"\n        width="260" height="72" style="border:0" loading="lazy"\n        title="${slug} on PWANova"></iframe>`
     }
-    return `<a href="${canonical}" target="_blank" rel="noopener">\n  <img src="${siteUrl}/api/badge/${slug}?theme=${theme}"\n       width="220" height="60" alt="View on PWANova" loading="lazy">\n</a>`
-  }, [slug, theme, format, canonical])
+    return `<a href="${canonical}" target="_blank" rel="noopener">\n  <img src="${siteUrl}/api/badge/${slug}?theme=${theme}${refCode ? `&ref=${encodeURIComponent(refCode)}` : ""}"\n       width="220" height="60" alt="View on PWANova" loading="lazy">\n</a>`
+  }, [slug, theme, format, canonical, refCode])
 
   const selectCls = "h-9 rounded-lg border border-input bg-background px-2.5 text-sm"
   return (

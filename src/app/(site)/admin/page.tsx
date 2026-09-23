@@ -68,7 +68,6 @@ export default async function AdminPage() {
                   ...(a.status !== "published" ? [{ kind: "approve" as const, label: a.status === "pending" ? "Approve" : "Restore" }] : [{ kind: "hide" as const, label: "Hide" }]),
                   ...(a.status === "pending" ? [{ kind: "reject" as const, label: "Reject", danger: true }] : []),
                   ...(a.status !== "suspended" ? [{ kind: "suspend" as const, label: "Suspend", danger: true }] : []),
-                  { kind: a.verification_status === "verified" ? "unverify" : "verify", label: a.verification_status === "verified" ? "Unverify" : "Verify" },
                   { kind: a.is_featured ? "unfeature" : "feature", label: a.is_featured ? "Unfeature" : "Feature" },
                 ]} />
                   {a.ownership_status === "verified_owner" && <ReassignOwnerForm appId={a.id} />}

@@ -262,9 +262,9 @@ describe("developer dashboard", () => {
     await as(ids.novalabs, async () => {
       const [{ d }] = await q<{ d: { totals: Record<string, number>; series: unknown[]; trafficSources: { source: string }[]; topApps: { slug: string }[] } }>("select public.developer_dashboard(14) d")
       assert.equal(d.series.length, 14)
-      assert.ok(d.totals.views > 0 && d.totals.opens > 0)
-      assert.ok(d.trafficSources.length > 0)
-      assert.deepEqual(d.topApps.map((a) => a.slug).sort(), ["budgetly", "metro-fit", "teampulse"])
+      assert.equal(d.totals.views, 0, "demo events excluded")
+      assert.equal(d.trafficSources.length, 0)
+      assert.deepEqual(d.topApps, [], "demo apps excluded")
     })
     await as(ids.rater2, async () => {
       const [{ d }] = await q<{ d: { totals: Record<string, number> } }>("select public.developer_dashboard(14) d")
@@ -310,8 +310,8 @@ describe("app status transitions (approval-mode self-approve bug, fixed)", () =>
 describe("atomic ownership assignment + re-verification on domain change", () => {
   it("claim_app_ownership refuses to replace an existing verified owner", async () => {
     const claimId = "70000000-0000-4000-8000-000000000001"
-    await q(`insert into public.app_claims (id, app_id, user_id) values ('${claimId}', '${ids.metroFit}', '${ids.rater1}')`)
-    const [{ won }] = await q<{ won: boolean }>(`select public.claim_app_ownership('${ids.metroFit}', '${ids.rater1}', '${claimId}') won`)
+    await q(`insert into public.app_claims (id, app_id, user_id, token, bound_url) values ('${claimId}', '${ids.metroFit}', '${ids.rater1}', 'token', 'https://metrofit.example')`)
+    const [{ won }] = await q<{ won: boolean }>(`select public.claim_app_ownership('${ids.metroFit}', '${ids.rater1}', '${claimId}', 'token', 'https://metrofit.example') won`)
     assert.equal(won, false)
     assert.equal((await q<{ developer_id: string }>(`select developer_id from public.apps where id = '${ids.metroFit}'`))[0].developer_id, ids.novalabs, "owner must not change")
   })
@@ -320,9 +320,9 @@ describe("atomic ownership assignment + re-verification on domain change", () =>
     const claimA = "70000000-0000-4000-8000-000000000002"
     const claimB = "70000000-0000-4000-8000-000000000003"
     await q(`insert into public.apps (id, developer_id, name, slug, url, domain) values ('${appId}', '${ids.rater1}', 'Race App', 'race-app', 'https://race-app.example', 'race-app.example')`)
-    await q(`insert into public.app_claims (id, app_id, user_id) values ('${claimA}', '${appId}', '${ids.rater1}'), ('${claimB}', '${appId}', '${ids.rater2}')`)
-    const [{ won: wonA }] = await q<{ won: boolean }>(`select public.claim_app_ownership('${appId}', '${ids.rater1}', '${claimA}') won`)
-    const [{ won: wonB }] = await q<{ won: boolean }>(`select public.claim_app_ownership('${appId}', '${ids.rater2}', '${claimB}') won`)
+    await q(`insert into public.app_claims (id, app_id, user_id, token, bound_url) values ('${claimA}', '${appId}', '${ids.rater1}', 'token-a', 'https://race-app.example'), ('${claimB}', '${appId}', '${ids.rater2}', 'token-b', 'https://race-app.example')`)
+    const [{ won: wonA }] = await q<{ won: boolean }>(`select public.claim_app_ownership('${appId}', '${ids.rater1}', '${claimA}', 'token-a', 'https://race-app.example') won`)
+    const [{ won: wonB }] = await q<{ won: boolean }>(`select public.claim_app_ownership('${appId}', '${ids.rater2}', '${claimB}', 'token-b', 'https://race-app.example') won`)
     assert.equal(wonA, true)
     assert.equal(wonB, false, "second caller must lose once ownership_status is verified_owner")
     const [app] = await q<{ developer_id: string; ownership_status: string }>(`select developer_id, ownership_status from public.apps where id = '${appId}'`)
@@ -344,10 +344,10 @@ describe("claims RLS: verifying your own app while it awaits moderation", () => 
     const appId = "60000000-0000-4000-8000-000000000004"
     await as(ids.rater1, async () => {
       await q(`insert into public.apps (id, developer_id, name, slug, url, domain, status) values ('${appId}', '${ids.rater1}', 'Pending Owner App', 'pending-owner-app', 'https://pending-owner-app.example', 'pending-owner-app.example', 'pending')`)
-      await q(`insert into public.app_claims (app_id, user_id) values ('${appId}', '${ids.rater1}')`)
+      await q(`select public.begin_app_claim('${appId}')`)
     })
     await as(ids.rater2, async () => {
-      await assert.rejects(q(`insert into public.app_claims (app_id, user_id) values ('${appId}', '${ids.rater2}')`), /row-level security/)
+      await assert.rejects(q(`select public.begin_app_claim('${appId}')`), /App unavailable/)
     })
   })
 })
@@ -412,4 +412,101 @@ describe("ranking", () => {
     const [{ n }] = await q<{ n: number }>(`select count(*)::int n from public.ratings where app_id = '${ids.metroFit}'`)
     assert.equal(total, n)
   })
+})
+
+
+describe("closed beta adversarial regressions", () => {
+ it("INSERT cannot self-approve or forge health", async () => {
+  await as(ids.rater2, async () => {
+   const [a] = await q<{status:string;health_status:string}>(`insert into public.apps(developer_id,name,slug,url,domain,status,health_status) values('${ids.rater2}','Insert attack','insert-attack','https://insert.example/','insert.example','published','online') returning status,health_status`)
+   assert.equal(a.status,'pending'); assert.equal(a.health_status,'unknown')
+  })
+ })
+ it("claims restart rotates tokens; caller cannot forge claim fields", async () => {
+  const appId = '60000000-0000-4000-8000-000000000004'
+  await as(ids.rater1, async () => {
+   const [before] = await q<{token:string}>(`select token from public.app_claims where app_id='${appId}'`)
+   await q(`select public.begin_app_claim('${appId}')`)
+   const [after] = await q<{token:string}>(`select token from public.app_claims where app_id='${appId}'`)
+   assert.notEqual(before.token,after.token)
+   await assert.rejects(q(`update public.app_claims set status='verified' where app_id='${appId}'`),/permission denied/)
+  })
+ })
+ it("claims reject wrong token, wrong user, wrong URL, expiry and replay", async () => {
+  const appId='60000000-0000-4000-8000-000000000004'
+  const [c]=await q<{id:string;token:string;bound_url:string}>(`select id,token,bound_url from public.app_claims where app_id='${appId}'`)
+  const claim=(uid:string,token:string,url:string)=>q<{won:boolean}>(`select public.claim_app_ownership('${appId}','${uid}','${c.id}','${token}','${url}') won`)
+  assert.equal((await claim(ids.rater1,'wrong',c.bound_url))[0].won,false)
+  assert.equal((await claim(ids.rater2,c.token,c.bound_url))[0].won,false)
+  assert.equal((await claim(ids.rater1,c.token,'https://other.example/'))[0].won,false)
+  await q(`update public.app_claims set expires_at=now()-interval '1 second' where id='${c.id}'`)
+  assert.equal((await claim(ids.rater1,c.token,c.bound_url))[0].won,false)
+  await q(`update public.app_claims set expires_at=now()+interval '1 day' where id='${c.id}'`)
+  assert.equal((await claim(ids.rater1,c.token,c.bound_url))[0].won,true)
+  assert.equal((await claim(ids.rater1,c.token,c.bound_url))[0].won,false)
+  assert.equal((await q<{status:string}>(`select status from public.apps where id='${appId}'`))[0].status,'pending','ownership does not approve publication')
+ })
+ it("direct rating updates project into reviews; deleting rating preserves text",async()=>{
+  await as(ids.rater1,async()=>{
+   await q(`insert into public.reviews(app_id,user_id,rating,body) values('${ids.invoicelite}','${ids.rater1}',4,'Canonical rating review') on conflict(app_id,user_id) do update set rating=4`)
+   await q(`update public.ratings set rating=2 where app_id='${ids.invoicelite}' and user_id='${ids.rater1}'`)
+   assert.equal((await q<{rating:number}>(`select rating from public.reviews where app_id='${ids.invoicelite}' and user_id='${ids.rater1}'`))[0].rating,2)
+   await q(`delete from public.ratings where app_id='${ids.invoicelite}' and user_id='${ids.rater1}'`)
+   const [r]=await q<{rating:null;body:string}>(`select rating,body from public.reviews where app_id='${ids.invoicelite}' and user_id='${ids.rater1}'`)
+   assert.equal(r.rating,null);assert.ok(r.body.length>0)
+  })
+ })
+ it("responses cannot be moved onto another app's review",async()=>{
+  await as(ids.novalabs,async()=>{
+   await q(`insert into public.developer_responses(review_id,developer_id,body) values('${ids.metroReview}','${ids.novalabs}','Thank you for feedback') on conflict(review_id) do update set body=excluded.body`)
+   await assert.rejects(q(`update public.developer_responses set review_id='${ids.mealReview}' where review_id='${ids.metroReview}'`),/immutable/)
+  })
+ })
+ it("moderation requires admin and a reason, hides text, preserves stars and logs",async()=>{
+  await as(ids.rater1,()=>assert.rejects(q(`select public.moderate('remove_review','${ids.metroReview}','Low stars')`),/Admin required/))
+  await q(`update public.profiles set role='admin' where id='${ids.marina}'`)
+  await as(ids.marina,async()=>{
+   await assert.rejects(q(`select public.moderate('remove_review','${ids.metroReview}',null)`),/reason/)
+   await q(`select public.moderate('remove_review','${ids.metroReview}','Spam links violate review rules')`)
+   assert.equal((await q(`select 1 from public.admin_actions where action='remove_review' and target_id='${ids.metroReview}'`)).length,1)
+  })
+  await as('anon',async()=>assert.equal((await q(`select 1 from public.reviews where id='${ids.metroReview}'`)).length,0))
+  assert.equal((await q(`select 1 from public.reviews where id='${ids.metroReview}'`)).length,1)
+  await q(`update public.profiles set role='developer' where id='${ids.marina}'`)
+ })
+ it("canonical identity separates paths and hosting subdomains, ignores query and fragment",async()=>{
+  const [r]=await q<{a:string;b:string;c:string}>(`select public.canonical_app_url('https://a.vercel.app/tool/?x=1#y') a,public.canonical_app_url('https://a.vercel.app/other') b,public.canonical_app_url('https://b.vercel.app/tool') c`)
+  assert.equal(r.a,'https://a.vercel.app/tool');assert.notEqual(r.a,r.b);assert.notEqual(r.a,r.c)
+ })
+})
+
+it("owners cannot undo a moderator's hide decision",async()=>{
+ const appId='60000000-0000-4000-8000-000000000004'
+ await q(`update public.profiles set role='admin' where id='${ids.marina}'`)
+ await as(ids.marina,()=>q(`select public.moderate('hide','${appId}','Policy violation under review')`))
+ await as(ids.rater1,()=>q(`update public.apps set status='published',moderation_hidden=false where id='${appId}'`))
+ const [app]=await q<{status:string;moderation_hidden:boolean}>(`select status,moderation_hidden from public.apps where id='${appId}'`)
+ assert.deepEqual(app,{status:'hidden',moderation_hidden:true})
+ await q(`update public.profiles set role='developer' where id='${ids.marina}'`)
+})
+it("a rating cannot be repointed to another app",async()=>{
+ await as(ids.rater1,async()=>{
+  await q(`insert into public.ratings(app_id,user_id,rating) values('${ids.metroFit}','${ids.rater1}',3) on conflict(app_id,user_id) do update set rating=3`)
+  await assert.rejects(q(`update public.ratings set app_id='${ids.mealcraft}' where app_id='${ids.metroFit}' and user_id='${ids.rater1}'`),/immutable/)
+ })
+})
+
+it("canonical identity normalizes default ports without merging origins",async()=>{
+ const [r]=await q<{a:string;b:string}>("select public.canonical_app_url('https://Example.com:443/tool/') a, public.canonical_app_url('http://example.com:80/tool') b")
+ assert.equal(r.a,'https://example.com/tool');assert.equal(r.b,'http://example.com/tool');assert.notEqual(r.a,r.b)
+})
+
+it("a rating made before acquiring ownership no longer contributes to public aggregates",async()=>{
+ const id='80000000-0000-4000-8000-000000000009'
+ await q(`insert into public.apps(id,name,slug,url,domain,status) values('${id}','Future owned','future-owned','https://future-owned.example/','future-owned.example','published')`)
+ await as(ids.rater2,()=>q(`insert into public.ratings(app_id,user_id,rating) values('${id}','${ids.rater2}',5)`))
+ await q(`update public.apps set developer_id='${ids.rater2}',ownership_status='verified_owner' where id='${id}'`)
+ assert.equal((await q<{ratings_count:number}>(`select ratings_count from public.apps_public where id='${id}'`))[0].ratings_count,0)
+ assert.equal((await q<{n:string}>(`select sum(total)::text n from public.rating_breakdown('${id}')`))[0].n,'0')
+ assert.equal((await q(`select 1 from public.ratings where app_id='${id}'`)).length,1,'historical data is preserved')
 })

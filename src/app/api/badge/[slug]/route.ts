@@ -22,7 +22,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   // `_example` is the Partner Kit's static, clearly-fictional sample (see src/lib/partner-example.ts)
   const app = isExampleSlug(slug) ? exampleApp : await getAppBySlug(slug)
   if (!app || app.status !== "published") {
-    return new NextResponse(badgeNotFoundSvg(dark), { status: 404, headers: { ...CORS, "content-type": "image/svg+xml", "cache-control": "public, s-maxage=60" } })
+    return new NextResponse(badgeNotFoundSvg(dark), { status: 404, headers: { ...CORS, "content-type": "image/svg+xml", "cache-control": "no-store" } })
   }
   const body = badgeSvg({
     title: app.ratingsCount ? `${app.rating.toFixed(1)} ★ · ${app.ratingsCount} ratings` : "View on PWANova",
@@ -31,5 +31,5 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     demo: app.isDemo,
     dark,
   })
-  return new NextResponse(body, { headers: { ...CORS, "content-type": "image/svg+xml", "cache-control": "public, s-maxage=300, stale-while-revalidate=600" } })
+  return new NextResponse(body, { headers: { ...CORS, "content-type": "image/svg+xml", "cache-control": "no-store" } })
 }
