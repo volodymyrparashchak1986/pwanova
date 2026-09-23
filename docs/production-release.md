@@ -39,3 +39,13 @@ Real email delivery, real public HTTPS ownership-file success, signed-in product
 The catalog currently has zero real applications. Earlier results (111 unit/PGlite, 39 local Supabase checks and 7 E2E scenarios, plus typecheck/lint/build and GitHub CI) remain local/CI evidence, not production user tests.
 
 Rollback needs code/database compatibility review: the previous unchecked claim RPC signature was removed. Do not blindly promote an old application build or restore the shared database over newer user data.
+
+## Adopted into `main` — 2026-09-23
+
+The owner reviewed this rollout and chose to keep it. PR #2 was merged into `main` with these follow-up fixes so that `main` matches what production runs:
+
+- `supabase/config.toml` `[auth].site_url` restored to `https://pwanova.vercel.app` (the remote value). The local Docker ports (553xx) and the `pwanova-beta-local` project id stay as documented in the README; localhost redirects remain in `additional_redirect_urls`, and the app always passes an explicit `redirectTo`, so local sign-in keeps working. Never run `supabase config push` with a localhost `site_url`.
+- Two intentionally empty placeholder migrations (`20260922204132_deployment_hardening.sql`, `20260922204432_restrict_business_grants.sql`) mirror the versions the separate Werkstatt Nova application applied to the shared Supabase project, so `supabase db push` and `supabase migration list` from this repository match the remote history without touching the `business_*` objects.
+- `NEXT_PUBLIC_AUTH_GITHUB=true` is required on the production deployment: this release hides OAuth buttons unless explicitly enabled, and the GitHub provider is configured on the project. `SUBMIT_REQUIRES_APPROVAL` is obsolete (approval is enforced by the database) and can be removed from the environment.
+- The default catalog order (`sort=top`) now lists editorially featured apps first; `scripts/import-apps.ts` seeds the catalog with real, live-checked apps (see `scripts/catalog-candidates.ts`).
+- `/private/tmp/pwanova-release-backup/` (schema and data dump, and a pulled production env file) should be deleted once no longer needed; it contains production secrets and auth data.

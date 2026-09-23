@@ -60,10 +60,11 @@ export async function getApps(f: AppFilters = {}): Promise<AppView[]> {
   if (f.launch) q = q.ilike("launch_source_name", f.launch.replace(/[%_]/g, ""))
   if (f.developerId) q = q.eq("developer_id", f.developerId)
   const sort = f.sort ?? "top"
+  // "top" (the default catalog order) pins editorially featured listings first, then ranks by score.
   q = sort === "trending" ? q.order("trending_score", { ascending: false }).order("ranking_score", { ascending: false })
     : sort === "new" ? q.order("created_at", { ascending: false })
     : sort === "rating" ? q.order("ranking_score", { ascending: false }).order("ratings_count", { ascending: false })
-    : q.order("ranking_score", { ascending: false })
+    : q.order("is_featured", { ascending: false }).order("ranking_score", { ascending: false }).order("featured_at", { ascending: true, nullsFirst: false })
   const offset = f.offset ?? 0
   const { data, error } = await q.range(offset, offset + (f.limit ?? 60) - 1)
   if (error) { console.error("getApps", error.message); return [] }
@@ -75,7 +76,7 @@ export async function getFeaturedApps(limit = 6): Promise<AppView[]> {
   const sb = await createClient()
   let q = sb.from("apps_public").select("*").eq("is_featured", true)
   if (!showDemoData) q = q.eq("is_demo", false)
-  const { data } = await q.order("ranking_score", { ascending: false }).limit(limit)
+  const { data } = await q.order("ranking_score", { ascending: false }).order("featured_at", { ascending: true, nullsFirst: false }).limit(limit)
   const rows = (data ?? []).map((r) => mapApp(r))
   return rows.length ? rows : getApps({ sort: "top", limit })
 }

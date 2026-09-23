@@ -1,0 +1,9 @@
+-- Placeholder. Version 20260922204132 ("deployment_hardening") exists in the linked Supabase
+-- project's migration history because a SEPARATE application (the Werkstatt Nova business starter,
+-- repository parvladimir/pwanova-business-starter) shares the same Supabase project and applied its
+-- own migration there on 2026-09-22. It created the `public.business_*` tables, which PWANova never
+-- reads or writes.
+--
+-- This file is intentionally empty so that `supabase db push` and `supabase migration list` from
+-- this repository stay in sync with the remote history. Do not add PWANova schema changes here and
+-- never drop or alter `business_*` objects from this repository.

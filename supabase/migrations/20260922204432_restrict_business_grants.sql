@@ -1,0 +1,4 @@
+-- Placeholder. Version 20260922204432 ("restrict_business_grants") belongs to the separate Werkstatt
+-- Nova business starter that shares this Supabase project (see 20260922204132_deployment_hardening.sql).
+-- Intentionally empty here: it only adjusted grants on the `public.business_*` tables, which are not
+-- part of PWANova.
