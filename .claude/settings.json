@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "ask": [
+      "Bash(supabase db push:*)",
+      "Bash(supabase db dump:*)",
+      "Bash(supabase db query:*)",
+      "Bash(supabase config push:*)",
+      "Bash(supabase migration repair:*)",
+      "Bash(supabase migration up:*)",
+      "Bash(supabase link:*)",
+      "Bash(supabase unlink:*)",
+      "Bash(supabase secrets:*)",
+      "Bash(supabase functions deploy:*)",
+      "Bash(supabase projects create:*)",
+      "Bash(supabase branches:*)",
+      "Bash(vercel deploy:*)",
+      "Bash(vercel promote:*)",
+      "Bash(vercel rollback:*)",
+      "Bash(vercel env:*)",
+      "Bash(vercel alias:*)",
+      "Bash(vercel link:*)",
+      "Bash(vercel domains:*)",
+      "Bash(vercel project:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr ready:*)",
+      "Bash(gh secret:*)",
+      "Bash(gh variable:*)",
+      "Bash(gh workflow run:*)",
+      "Bash(npm run verify:supabase:*)",
+      "Bash(npm run import:apps:*)",
+      "Bash(psql:*)"
+    ],
+    "deny": [
+      "Bash(supabase db reset --linked:*)",
+      "Bash(supabase projects delete:*)",
+      "Bash(vercel rm:*)",
+      "Bash(vercel remove:*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./supabase/.temp/**)"
+    ]
+  }
+}
