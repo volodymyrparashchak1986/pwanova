@@ -9,6 +9,7 @@
  */
 import { randomBytes } from "node:crypto"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import { assertAllowedTarget } from "./env-guard"
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -17,6 +18,8 @@ if (!url || !anonKey || !serviceKey) {
   console.error("Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY")
   process.exit(2)
 }
+// This script creates and deletes rows: never let it run against a cloud project by accident.
+assertAllowedTarget(url, "verify:supabase")
 
 if (!["127.0.0.1", "localhost"].includes(new URL(url).hostname)) {
   throw new Error("This verifier is restricted to local Supabase. Production writes are forbidden.")

@@ -16,6 +16,7 @@ import { cleanText } from "@/lib/security/sanitize"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { canonicalAppUrl, domainOf, slugify } from "@/lib/url"
 import { CANDIDATES, type Candidate } from "./catalog-candidates"
+import { assertAllowedTarget } from "./env-guard"
 
 const args = new Set(process.argv.slice(2).filter((a) => !a.startsWith("--only=")))
 const only = process.argv.find((a) => a.startsWith("--only="))?.slice(7).split(",").filter(Boolean)
@@ -77,6 +78,7 @@ async function main() {
     return
   }
 
+  assertAllowedTarget(process.env.NEXT_PUBLIC_SUPABASE_URL, "import:apps --apply")
   const admin = createAdminClient()
   if (!admin) throw new Error("SUPABASE_SERVICE_ROLE_KEY / NEXT_PUBLIC_SUPABASE_URL missing")
 
