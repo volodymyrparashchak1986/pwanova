@@ -126,7 +126,7 @@ export default async function HomePage() {
           <Globe2 className="size-7" />
           <h3 className="mt-4 text-xl font-semibold">Launch anywhere. Live on PWANova.</h3>
           <p className="mt-2 text-white/85">Keep your deployment. Get a permanent home for ratings, reviews, verification and traffic insight.</p>
-          <Link href="/for-developers" className={cn(buttonVariants({ variant: "secondary" }), "mt-5 rounded-full bg-white text-foreground hover:bg-white/90")}>For Developers</Link>
+          <Link href="/for-developers" className={cn(buttonVariants({ variant: "secondary" }), "mt-5 rounded-full bg-white text-[oklch(0.17_0.03_275)] hover:bg-white/90 hover:text-[oklch(0.17_0.03_275)]")}>For Developers</Link>
         </div>
       </section>
     </>
