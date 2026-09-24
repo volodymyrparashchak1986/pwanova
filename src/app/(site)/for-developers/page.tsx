@@ -17,7 +17,7 @@ const BENEFITS = [
   { icon: MessageSquareText, title: "Collect ratings and get reviews", body: "Real, signed-in people. Reply publicly as the verified owner." },
   { icon: BarChart3, title: "Understand traffic, measure opens", body: "See views, opens, install actions and where visitors came from." },
   { icon: Compass, title: "Get discovered", body: "Search, categories, trending and top lists filterable by build tool, host and launch source." },
-  { icon: ShieldCheck, title: "Claim your app", body: "Already listed? Prove domain ownership with a meta tag, a well-known file or DNS." },
+  { icon: ShieldCheck, title: "Claim your app", body: "Already listed? Prove domain ownership by serving one small text file on your own origin." },
   { icon: BadgeCheck, title: "Ownership verified", body: "Proof of origin control, displayed separately from technical checks. Not a security audit." },
 ]
 
@@ -52,14 +52,15 @@ export default function ForDevelopersPage() {
           <div>
             <h2 className="text-3xl font-semibold tracking-tight">Three steps</h2>
             <ol className="mt-5 space-y-4">
-              {["Paste your live URL. We read your title, icon, manifest and host.", "Ship it. Your listing goes live with quality checks.", "Verify your domain to unlock developer replies, analytics and the Verified badge."].map((t, i) => (
+              {["Paste your live URL. We read your title, icon, manifest and host.", "Ship it. Your listing goes live with quality checks.", "Verify your domain with a one-line file at /.well-known/ to unlock developer replies, analytics and the Ownership verified badge."].map((t, i) => (
                 <li key={i} className="flex gap-3"><span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">{i + 1}</span><span className="text-muted-foreground">{t}</span></li>
               ))}
             </ol>
           </div>
           <div className="rounded-2xl bg-muted p-5 font-mono text-[13px] leading-relaxed">
-            <p className="text-muted-foreground">{"<!-- add to <head>, or use /.well-known or DNS TXT -->"}</p>
-            <p className="mt-1 break-all">{'<meta name="pwanova-verification" content="…">'}</p>
+            <p className="text-muted-foreground">{"# https://your-app.example/.well-known/pwanova-verification.txt"}</p>
+            <p className="mt-1 break-all">{"<your claim token, one line, nothing else>"}</p>
+            <p className="mt-3 text-muted-foreground">{"# the token is issued on your app's Claim page and stays valid for 3 days"}</p>
           </div>
         </div>
         <div className="mt-12 text-center"><Link href="/ship" className={cn(buttonVariants({ size: "lg" }), "rounded-full")}>Ship Your App</Link></div>

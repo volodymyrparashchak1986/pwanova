@@ -98,10 +98,10 @@ export default async function AppPage({ params, searchParams }: Props) {
       </header>
 
       {app.ownershipStatus !== "verified_owner" && (
-        <div className="mt-8 flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-accent/50 p-4">
-          <ShieldQuestion className="size-6 text-brand" />
+        <div className="mt-8 flex flex-col gap-4 rounded-2xl border border-border bg-accent/50 p-4 sm:flex-row sm:items-center">
+          <ShieldQuestion className="size-6 shrink-0 text-brand max-sm:hidden" />
           <div className="min-w-0 flex-1"><p className="font-semibold">Is this your app?</p><p className="text-sm text-muted-foreground">{app.ownershipStatus === "unclaimed" ? "This listing hasn't been claimed yet." : "The owner of this listing hasn't verified ownership."} Claim it to respond to reviews, see analytics and earn Ownership verified.</p></div>
-          <Link href={`/apps/${app.slug}/claim`} className={cn(buttonVariants({ variant: "default" }), "rounded-full")}>Claim this app</Link>
+          <Link href={`/apps/${app.slug}/claim`} className={cn(buttonVariants({ variant: "default" }), "rounded-full max-sm:w-full")}>Claim this app</Link>
         </div>
       )}
 

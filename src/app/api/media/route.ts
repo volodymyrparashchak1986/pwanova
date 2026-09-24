@@ -8,9 +8,9 @@ export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url")
   if (!url) return new NextResponse(null, { status: 400 })
   try {
-    const image = await safeFetch(url, { maxBytes: 2_000_000, accept: "image/png,image/jpeg,image/webp,image/gif" })
+    const image = await safeFetch(url, { maxBytes: 2_000_000, accept: "image/png,image/jpeg,image/webp,image/gif,image/x-icon,image/vnd.microsoft.icon" })
     const type = image.headers.get("content-type")?.split(";")[0]
-    if (image.status !== 200 || !type || !["image/png", "image/jpeg", "image/webp", "image/gif"].includes(type)) throw new Error("Unsupported image")
-    return new NextResponse(new Uint8Array(image.bytes), { headers: { "content-type": type, "x-content-type-options": "nosniff", "cache-control": "no-store", "content-security-policy": "default-src 'none'; sandbox" } })
-  } catch { return new NextResponse(null, { status: 404, headers: { "cache-control": "no-store" } }) }
+    if (image.status !== 200 || !type || !["image/png", "image/jpeg", "image/webp", "image/gif", "image/x-icon", "image/vnd.microsoft.icon"].includes(type)) throw new Error("Unsupported image")
+    return new NextResponse(new Uint8Array(image.bytes), { headers: { "content-type": type, "x-content-type-options": "nosniff", "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800", "content-security-policy": "default-src 'none'; sandbox" } })
+  } catch { return new NextResponse(null, { status: 404, headers: { "cache-control": "public, max-age=60, s-maxage=300" } }) }
 }

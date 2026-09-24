@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 const pill = "inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
 
 export function BuiltWithBadge({ tool, linked, className }: { tool: string; linked?: boolean; className?: string }) {
+  if (tool === "other") return null // unknown build tool: showing "Built with Other" tells the reader nothing
   const inner = <><Hammer className="size-3" />Built with {labelFor.build(tool)}</>
   return linked ? <Link href={`/explore?build=${tool}`} className={cn(pill, "hover:text-foreground", className)}>{inner}</Link> : <span className={cn(pill, className)}>{inner}</span>
 }
