@@ -8,7 +8,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
     <>
       <DemoBanner />
       <SiteHeader />
-      <main className="flex-1 pb-24 md:pb-0">{children}</main>
+      <main className="flex-1 pb-24 lg:pb-0">{children}</main>
       <SiteFooter />
       <MobileNav />
     </>

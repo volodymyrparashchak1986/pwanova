@@ -2,18 +2,20 @@ import Link from "next/link"
 import { ArrowRight, Globe2, RefreshCw, Search, ShieldCheck, Smartphone, Zap } from "lucide-react"
 import { AppCard, AppRow } from "@/components/app/app-card"
 import { AppIcon } from "@/components/app/app-icon"
+import { CommunityReviews } from "@/components/app/community-reviews"
 import { SectionHeader } from "@/components/app/section-header"
 import { buttonVariants } from "@/components/ui/button"
 import { BUILD_TOOLS, CATEGORIES } from "@/lib/constants"
-import { getApps, getFeaturedApps } from "@/lib/data"
+import { getApps, getCommunityReviews, getFeaturedApps } from "@/lib/data"
 import { cn } from "@/lib/utils"
 
 export default async function HomePage() {
-  const [featured, top, trending, fresh] = await Promise.all([
+  const [featured, top, trending, fresh, community] = await Promise.all([
     getFeaturedApps(6),
     getApps({ sort: "top", limit: 5 }),
     getApps({ sort: "trending", limit: 5 }),
     getApps({ sort: "new", limit: 5 }),
+    getCommunityReviews(3, 3),
   ])
 
   return (
@@ -75,6 +77,9 @@ export default async function HomePage() {
           <div className="-mx-2.5">{fresh.map((a) => <AppRow key={a.id} app={a} from="home" />)}</div>
         </div>
       </section>
+
+      {/* COMMUNITY REVIEWS: real reviews of the top three apps, up to three each */}
+      <CommunityReviews data={community} />
 
       {/* FUTURE OF APPS */}
       <section className="mx-auto mt-24 max-w-6xl px-4">

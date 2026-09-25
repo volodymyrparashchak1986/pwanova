@@ -18,7 +18,7 @@ export function MobileNav() {
   const path = usePathname()
   if (path.startsWith("/embed")) return null
   return (
-    <nav aria-label="Primary" className="glass pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-border md:hidden">
+    <nav aria-label="Primary" className="glass pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-border lg:hidden">
       <ul className="mx-auto grid max-w-md grid-cols-5">
         {ITEMS.map(({ href, label, icon: Icon }) => {
           const active = href === "/" ? path === "/" : path.startsWith(href)

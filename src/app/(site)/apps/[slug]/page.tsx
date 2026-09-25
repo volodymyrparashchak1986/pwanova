@@ -10,6 +10,7 @@ import { RateBox } from "@/components/app/rate-box"
 import { RatingSummary } from "@/components/app/rating-summary"
 import { ReviewForm } from "@/components/app/review-form"
 import { ReviewItem } from "@/components/app/review-item"
+import { ReviewHighlights } from "@/components/app/review-highlights"
 import { Screenshots } from "@/components/app/screenshots"
 import { Stars } from "@/components/app/stars"
 import { ViewTracker } from "@/components/app/tracker"
@@ -139,6 +140,7 @@ export default async function AppPage({ params, searchParams }: Props) {
             )}
           </div>
         </div>
+        <ReviewHighlights reviews={reviews} app={app} />
         <div className="mt-5 space-y-3">
           {reviews.length ? reviews.map((r) => <ReviewItem key={r.id} review={r} slug={app.slug} viewerId={viewer?.id ?? null} canRespond={canRespond} />)
             : <p className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No reviews yet. Be the first to share what you think.</p>}

@@ -1,6 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "pwanova-dev", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 3000, "autoPort": true }
+    { "name": "pwanova-dev", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 3000, "autoPort": true },
+    { "name": "pwanova-dev-demo", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:demo"], "port": 3000, "autoPort": true }
   ]
 }
