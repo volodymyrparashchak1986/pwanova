@@ -7,6 +7,7 @@ import type {
   AppFilters, AppView, DashboardData, DeveloperView, RatingBreakdown, ReviewView, Viewer,
 } from "@/lib/types"
 import { demo, demoBreakdown, demoDashboard, filterDemoApps, DEMO_PARTNERS } from "./demo"
+import { byHelpfulThenNewest, pickReviewHighlights } from "@/lib/reviews"
 
 type Row = any
 
@@ -123,6 +124,20 @@ export async function getRatingBreakdown(app: AppView): Promise<RatingBreakdown>
   return { average: app.rating, count, rows }
 }
 
+const REVIEW_SELECT = "*, author:profiles!reviews_user_id_fkey(username, display_name, avatar_url), response:developer_responses(id, body, created_at, developer:profiles(display_name, username))"
+
+function mapReview(r: Row, mine: Set<string> = new Set()): ReviewView {
+  const resp = Array.isArray(r.response) ? r.response[0] : r.response
+  return {
+    hiddenAt: r.hidden_at ?? null, moderationReason: r.moderation_reason ?? null, id: r.id, appId: r.app_id, userId: r.user_id, rating: r.rating, title: r.title, body: r.body,
+    helpfulCount: r.helpful_count, verifiedUser: r.verified_user, verifiedUsage: r.verified_usage, isDemo: r.is_demo,
+    createdAt: r.created_at, updatedAt: r.updated_at,
+    author: { username: r.author?.username ?? "user", name: r.author?.display_name ?? r.author?.username ?? "User", avatarUrl: r.author?.avatar_url ?? null },
+    response: resp ? { id: resp.id, body: resp.body, createdAt: resp.created_at, developerName: resp.developer?.display_name ?? resp.developer?.username ?? "Developer" } : null,
+    helpfulByMe: mine.has(r.id),
+  }
+}
+
 // ------------------------------------------------------------------ reviews
 export async function getReviews(app: AppView, viewerId?: string | null): Promise<ReviewView[]> {
   if (!isSupabaseConfigured) {
@@ -151,17 +166,34 @@ export async function getReviews(app: AppView, viewerId?: string | null): Promis
     const { data: votes } = await sb.from("review_helpful").select("review_id").eq("user_id", viewerId).in("review_id", data.map((r: Row) => r.id))
     mine = new Set((votes ?? []).map((v: Row) => v.review_id))
   }
-  return (data ?? []).filter((r: Row) => r.user_id !== app.developer.id).map((r: Row): ReviewView => {
-    const resp = Array.isArray(r.response) ? r.response[0] : r.response
-    return {
-      hiddenAt: r.hidden_at ?? null, moderationReason: r.moderation_reason ?? null, id: r.id, appId: r.app_id, userId: r.user_id, rating: r.rating, title: r.title, body: r.body,
-      helpfulCount: r.helpful_count, verifiedUser: r.verified_user, verifiedUsage: r.verified_usage, isDemo: r.is_demo,
-      createdAt: r.created_at, updatedAt: r.updated_at,
-      author: { username: r.author?.username ?? "user", name: r.author?.display_name ?? r.author?.username ?? "User", avatarUrl: r.author?.avatar_url ?? null },
-      response: resp ? { id: resp.id, body: resp.body, createdAt: resp.created_at, developerName: resp.developer?.display_name ?? resp.developer?.username ?? "Developer" } : null,
-      helpfulByMe: mine.has(r.id),
-    }
-  })
+  return (data ?? []).filter((r: Row) => r.user_id !== app.developer.id).map((r: Row) => mapReview(r, mine))
+}
+
+export interface CommunityReviews { app: AppView; reviews: ReviewView[] }
+
+/**
+ * Real reviews of the top apps for the home page: up to `perApp` per app, most helpful first.
+ * Nothing is fabricated here. When nobody has written a review yet the arrays are simply empty,
+ * and the UI says so instead of inventing social proof.
+ */
+export async function getCommunityReviews(appsLimit = 3, perApp = 3): Promise<CommunityReviews[]> {
+  const apps = await getApps({ sort: "top", limit: appsLimit })
+  if (!apps.length) return []
+  if (!isSupabaseConfigured) {
+    if (!demoMode) return apps.map((app) => ({ app, reviews: [] }))
+    return apps.map((app) => ({ app, reviews: [...(demo().reviews.get(app.id) ?? [])].sort(byHelpfulThenNewest).slice(0, perApp) }))
+  }
+  const sb = await createClient()
+  const ids = apps.map((a) => a.id)
+  let q = sb.from("reviews").select(REVIEW_SELECT).in("app_id", ids).is("hidden_at", null)
+    .order("helpful_count", { ascending: false }).order("created_at", { ascending: false }).limit(appsLimit * 20)
+  if (!showDemoData) q = q.eq("is_demo", false)
+  const { data, error } = await q
+  if (error) { console.error("getCommunityReviews", error.message); return apps.map((app) => ({ app, reviews: [] })) }
+  const developerOf = new Map(apps.map((a) => [a.id, a.developer.id]))
+  const rows = (data ?? []).filter((r: Row) => r.user_id !== developerOf.get(r.app_id)).map((r: Row) => mapReview(r))
+  const picked = pickReviewHighlights(rows, ids, perApp)
+  return apps.map((app) => ({ app, reviews: picked.get(app.id) ?? [] }))
 }
 
 export async function getViewerAppState(appId: string, viewerId: string | null) {

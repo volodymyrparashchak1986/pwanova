@@ -15,14 +15,14 @@ export async function SiteHeader() {
         <Link href="/" aria-label="PWANova home"><Logo /></Link>
         <NavLinks />
         <div className="ml-auto flex items-center gap-1.5">
-          <form action="/explore" className="relative hidden md:block">
+          <form action="/explore" className="relative hidden xl:block">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               name="q" type="search" placeholder="Search apps, builders, tools…" aria-label="Search"
-              className="h-10 w-40 rounded-full border border-transparent bg-muted pr-4 pl-9 text-sm outline-none transition-all placeholder:text-muted-foreground focus:w-56 focus:border-ring focus:bg-background xl:w-56 xl:focus:w-80"
+              className="h-10 w-52 rounded-full border border-transparent bg-muted pr-4 pl-9 text-sm outline-none transition-all placeholder:text-muted-foreground focus:w-72 focus:border-ring focus:bg-background"
             />
           </form>
-          <Link href="/explore?focus=1" aria-label="Search" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "md:hidden")}><Search className="size-[18px]" /></Link>
+          <Link href="/explore?focus=1" aria-label="Search" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "xl:hidden")}><Search className="size-[18px]" /></Link>
           <ThemeToggle />
           {viewer ? (
             <Link href="/dashboard" className={cn(buttonVariants({ variant: "ghost" }), "hidden md:inline-flex")}>Dashboard</Link>
@@ -30,7 +30,7 @@ export async function SiteHeader() {
             <Link href="/sign-in" className={cn(buttonVariants({ variant: "ghost" }), "hidden md:inline-flex")}>Sign In</Link>
           )}
           <Link href="/ship" className={cn(buttonVariants(), "hidden whitespace-nowrap rounded-full sm:inline-flex")}>
-            <Sparkles className="size-4" /> Ship Your App
+            <Sparkles className="size-4" /><span className="hidden xl:inline">Ship Your App</span><span className="xl:hidden">Ship</span>
           </Link>
         </div>
       </div>
