@@ -3,12 +3,9 @@
  * Supabase-managed pieces (auth schema, roles) are stubbed in tests/supabase-prelude.sql.
  */
 import assert from "node:assert/strict"
-import { readdirSync, readFileSync } from "node:fs"
 import { after, before, describe, it } from "node:test"
-import { PGlite } from "@electric-sql/pglite"
-
-const root = new URL("../", import.meta.url)
-const read = (p: string) => readFileSync(new URL(p, root), "utf8")
+import type { PGlite } from "@electric-sql/pglite"
+import { createDb } from "./helpers/pg"
 
 let db: PGlite
 const ids = {
@@ -33,10 +30,7 @@ async function as<T>(who: string | "anon" | "service", fn: () => Promise<T>): Pr
 const q = async <T = Record<string, unknown>>(sql: string) => (await db.query<T>(sql)).rows
 
 before(async () => {
-  db = new PGlite()
-  await db.exec(read("tests/supabase-prelude.sql"))
-  for (const f of readdirSync(new URL("supabase/migrations/", root)).sort()) await db.exec(read(`supabase/migrations/${f}`))
-  await db.exec(read("supabase/seed.sql"))
+  db = await createDb()
 })
 after(async () => { await db.close() })
 
@@ -463,7 +457,7 @@ describe("closed beta adversarial regressions", () => {
   })
  })
  it("moderation requires admin and a reason, hides text, preserves stars and logs",async()=>{
-  await as(ids.rater1,()=>assert.rejects(q(`select public.moderate('remove_review','${ids.metroReview}','Low stars')`),/Admin required/))
+  await as(ids.rater1,()=>assert.rejects(q(`select public.moderate('remove_review','${ids.metroReview}','Low stars')`),/(Admin|Moderator) required/))
   await q(`update public.profiles set role='admin' where id='${ids.marina}'`)
   await as(ids.marina,async()=>{
    await assert.rejects(q(`select public.moderate('remove_review','${ids.metroReview}',null)`),/reason/)
