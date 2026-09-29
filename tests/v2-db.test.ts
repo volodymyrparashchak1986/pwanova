@@ -366,6 +366,9 @@ describe("moderation and audit", () => {
     assert.deepEqual(a, { developer_id: null, ownership_status: "unclaimed" })
     assert.equal((await fact(ids.metroFit, "dpa_available")).vendor_state, "unknown")
     assert.equal((await fact(ids.metroFit, "privacy_policy")).verified_state, "yes", "what PWANova observed is unaffected")
+    // the company the former owner described is no longer shown: nobody accountable stands behind it
+    const [c] = await q<{ company_name: string | null; company_in_eu: boolean | null }>(`select company_name, company_in_eu from public.catalog_apps where id = '${ids.metroFit}'`)
+    assert.deepEqual(c, { company_name: null, company_in_eu: null })
     await q(`update public.profiles set role = 'developer' where id = '${ids.marina}'`)
   })
 })
@@ -421,7 +424,11 @@ describe("search", () => {
     assert.deepEqual(await search(null, { facts: ["dpa_available"] }), ["invoicelite"])
     assert.deepEqual(await search(null, { facts: ["dpa_available"], categories: ["health-fitness"] }), [])
     assert.deepEqual(await search(null, { facts: ["dpa_available", "eu_hosting_available"] }), [])
-    assert.deepEqual(await search(null, { eu_company: true }), ["metro-fit"])
+    // metro-fit lost its verified owner above, and with it the company that owner had described
+    assert.deepEqual(await search(null, { eu_company: true }), [])
+    const budgetly = "40000000-0000-4000-8000-000000000009" // another listing of the same, still verified, owner
+    await as(ids.novalabs, () => q(`update public.apps set company_id = (select id from public.companies where slug = 'nova-labs') where id = '${budgetly}'`))
+    assert.deepEqual(await search(null, { eu_company: true }), ["budgetly"])
     assert.deepEqual(await search(null, { countries: ["CH"] }), ["invoicelite"])
   })
   it("verified-only ignores vendor statements", async () => {

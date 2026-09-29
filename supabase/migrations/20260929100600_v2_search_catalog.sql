@@ -87,6 +87,9 @@ select
   (select count(*)::int from public.follows fo where fo.app_id = a.id) as followers_count,
   (select count(*)::int from public.app_updates up where up.app_id = a.id and up.status = 'published') as updates_count,
   ap.ranking_score, ap.trending_score, ap.launch_source_name, ap.launch_source_type, ap.launch_source_url,
+  -- the average pulled towards 3.8 while there are few ratings, so one five-star rating does not lead the list
+  case when ap.ratings_count > 0
+       then round((ap.ratings_count::numeric / (ap.ratings_count + 10)) * ap.rating + (10.0 / (ap.ratings_count + 10)) * 3.8, 3) end as weighted_rating,
   a.content_locale, a.aliases,
   tr.tagline as tagline_de, tr.description as description_de,
   pc.id as category_id, pc.slug as category_slug, pc.name as category_name,
@@ -108,14 +111,20 @@ select
   (0.30 * a.evidence_score / 100.0
    + 0.25 * least(1.0, ln(1 + ap.opens_30d + 3 * ap.favorites_count + 5 * ap.reviews_count) / ln(501.0))
    + 0.20 * a.profile_completeness / 100.0
-   + 0.15 * case when ap.ratings_count > 0 then least(1.0, ap.ranking_score / 5.0) else 0 end
+   + 0.15 * case when ap.ratings_count > 0
+                 then ((ap.ratings_count::numeric / (ap.ratings_count + 10)) * ap.rating + (10.0 / (ap.ratings_count + 10)) * 3.8) / 5.0 else 0 end
    + 0.10 * case when a.evidence_checked_at is null then 0
                  else greatest(0, 1 - extract(epoch from (now() - a.evidence_checked_at)) / (180 * 86400.0)) end
   )::real as organic_score
 from public.apps_public ap
 join public.apps a on a.id = ap.id
 left join public.categories pc on pc.id = a.primary_category_id
+-- A company is shown once somebody accountable stands behind it: PWANova observed or reviewed it, or the
+-- verified owner of the listing stated it. What an unverified submitter typed stays out of the catalogue,
+-- out of the "EU company" filter and out of the alternatives pages until ownership is proven.
 left join public.companies co on co.id = a.company_id
+  and (co.source_type in ('pwanova_observed', 'admin_reviewed')
+       or (co.source_type = 'vendor_stated' and a.ownership_status = 'verified_owner' and co.created_by = a.developer_id))
 left join public.app_translations tr on tr.app_id = a.id and tr.locale = 'de'
 left join lateral (
   select jsonb_object_agg(x.attribute_key, jsonb_build_object(
@@ -163,7 +172,7 @@ language sql stable set search_path = public, extensions as $$
         + word_similarity(q.norm, coalesce(c.search_norm, ''))
         + case when lower(c.name) = q.norm then 2 when lower(c.name) like q.norm || '%' then 1 else 0 end
       end as relevance,
-      c.organic_score, c.ranking_score, c.trending_score, c.created_at, c.evidence_checked_at, c.name
+      c.organic_score, c.weighted_rating, c.trending_score, c.created_at, c.evidence_checked_at, c.name
     from public.catalog_apps c cross join q
     where (coalesce((q.f ->> 'demo')::boolean, false) or not c.is_demo)
       and (q.raw is null
@@ -196,7 +205,7 @@ language sql stable set search_path = public, extensions as $$
   order by
     case when p_sort = 'new' then extract(epoch from m.created_at) end desc nulls last,
     case when p_sort = 'recently_verified' then extract(epoch from m.evidence_checked_at) end desc nulls last,
-    case when p_sort = 'rating' then m.ranking_score end desc nulls last,
+    case when p_sort = 'rating' then m.weighted_rating end desc nulls last,
     case when p_sort = 'trending' then m.trending_score end desc nulls last,
     case when p_sort = 'name' then lower(m.name) end asc nulls last,
     (m.relevance + 0.5 * m.organic_score) desc,
@@ -253,3 +262,41 @@ begin
     perform public.refresh_app_search(r.id);
   end loop;
 end $$;
+
+-- ---------------------------------------------------------------- small public helpers
+-- A merged duplicate keeps its old URL alive: the page redirects to the listing that stayed.
+create or replace function public.duplicate_target(p_slug text) returns text
+language sql stable security definer set search_path = public as $$
+  select t.slug from public.apps d join public.apps t on t.id = d.duplicate_of
+  where d.slug = p_slug and t.status = 'published' limit 1;
+$$;
+revoke all on function public.duplicate_target(text) from public;
+grant execute on function public.duplicate_target(text) to anon, authenticated, service_role;
+
+-- "Popular with German-language visitors": aggregate first-party events of one language edition.
+-- It returns nothing at all until enough listings have real engagement (thresholds in site_settings).
+create or replace function public.popular_apps(p_locale text, p_days int default 30, p_limit int default 6)
+returns table (app_id uuid, score bigint)
+language sql stable security definer set search_path = public as $$
+  with limits as (
+    select coalesce((select (value ->> 'min_engaged_apps')::int from public.site_settings where key = 'popular'), 5) as min_apps,
+           coalesce((select (value ->> 'min_events')::int from public.site_settings where key = 'popular'), 50) as min_events
+  ), e as (
+    select v.app_id,
+           count(*) filter (where v.event_type in ('view', 'open_app'))
+             + 3 * count(*) filter (where v.event_type in ('favorite', 'follow', 'compare_added')) as score,
+           count(*) as events
+    from public.app_events v
+    join public.apps a on a.id = v.app_id and a.status = 'published' and not a.is_demo and a.duplicate_of is null
+    where v.created_at > now() - make_interval(days => least(90, greatest(1, p_days)))
+      and v.metadata ->> 'locale' = p_locale
+    group by v.app_id
+    having count(*) >= 3
+  )
+  select e.app_id, e.score from e, limits
+  where (select count(*) from e) >= limits.min_apps and (select coalesce(sum(events), 0) from e) >= limits.min_events
+  order by e.score desc
+  limit least(24, greatest(1, p_limit));
+$$;
+revoke all on function public.popular_apps(text, int, int) from public;
+grant execute on function public.popular_apps(text, int, int) to anon, authenticated, service_role;
