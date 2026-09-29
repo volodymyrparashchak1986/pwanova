@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "node --conditions=react-server --import tsx --test tests/*.test.ts",
     "seed:generate": "tsx scripts/generate-seed.ts",
     "validate": "npm run typecheck && npm run lint && npm test && npm run build",
