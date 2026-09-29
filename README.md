@@ -20,6 +20,7 @@ Storage), Vercel. English and German.
 | [Migration](docs/PWANOVA_V2_MIGRATION.md) | the eleven migrations and what they do to existing data |
 | [Redirects](docs/PWANOVA_V2_REDIRECTS.md) | old addresses and where they arrive |
 | [Deployment](docs/PWANOVA_V2_DEPLOYMENT.md) | release steps, settings, way back |
+| [Report](docs/PWANOVA_V2_REPORT.md) | what was implemented, test results, open points |
 
 Version 1 (closed beta): [audit](docs/beta-audit.md), [release checklist](docs/beta-release-checklist.md),
 [pilot](docs/beta-pilot.md), [production release of 2026-09-23](docs/production-release.md).

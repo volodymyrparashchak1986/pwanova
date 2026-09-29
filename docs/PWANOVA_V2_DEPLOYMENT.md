@@ -65,7 +65,7 @@ build. The end-to-end tests refuse any target but the local stack (`playwright.c
 `npm run verify:supabase` runs the checks of version 1 against the local stack with the real
 sign-in, API and storage services.
 
-Results of the last run are in the final report of the release.
+Results of the last run: [report](PWANOVA_V2_REPORT.md).
 
 ## 4. Release steps
 

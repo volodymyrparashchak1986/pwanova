@@ -71,7 +71,7 @@ schema and pass.
 | Upgrade of a database with data: counts, ids, slugs, owners, reviews and ratings identical before and after; every listing has a category and a search document; only observed facts exist | `node --conditions=react-server --import tsx --test tests/upgrade.test.ts` | 2 of 2 passed |
 | Rules of the new schema | `tests/v2-db.test.ts`, `tests/v2-owner.test.ts` | 38 of 38, 14 of 14 passed |
 | Rules of version 1 on the new schema | `tests/db.test.ts` | 50 of 50 passed |
-| All migrations on the local Supabase stack (Postgres 17), from an empty database | `supabase db reset` (local) | see the final report of the release |
+| All migrations on the local Supabase stack (Postgres 17), from an empty database | `supabase db reset --local` | all 19 migration files and both seed files applied |
 | Generated types compile against the application | `npm run db:types && npm run typecheck` | passed |
 
 The tests run on PGlite (Postgres in process). The local Supabase stack is the second, independent
