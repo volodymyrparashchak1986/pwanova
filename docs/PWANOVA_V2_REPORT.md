@@ -2,7 +2,8 @@
 
 Date: 2026-09-30. Branch `v2/platform` on top of `main` (`cac752c`). The results below were
 produced on commit `4b04af1`; this report was added after it.
-**Nothing is pushed. Production runs version 1 and was not touched.**
+**The branch is pushed and open as pull request #6 (draft). Production runs version 1 and was
+not touched; the migrations are not applied there.**
 
 Every result below was produced by a command that was actually run on that date. Where something
 was not run or not measured, it says so.
@@ -185,11 +186,11 @@ Each production action needs its own explicit approval.
 
 | # | Action |
 | --- | --- |
-| 1 | Review the branch and decide whether it is pushed and opened as a pull request |
+| 1 | Review pull request #6 (the branch was pushed and the pull request opened on 2026-09-30 with the owner's approval) |
 | 2 | Back up the production database |
 | 3 | Apply the migrations (`supabase db push`, without `--include-seed`) |
 | 4 | Check the running version-1 site on the migrated database |
-| 5 | Merge to `main`, which deploys |
+| 5 | Mark the pull request as ready and merge to `main`, which deploys |
 | 6 | Run the checks after the deployment ([deployment, section 6](PWANOVA_V2_DEPLOYMENT.md)) |
 | 7 | Enter the operator's details in Admin → Settings; have the legal texts checked by a lawyer |
 | 8 | Name the processors' agreements and the region of the database on the privacy page |

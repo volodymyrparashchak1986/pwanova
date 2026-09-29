@@ -1,6 +1,6 @@
 # PWANova V2 — deployment
 
-V2 is developed on the branch `v2/platform` and verified locally. It uses the existing repository,
+V2 is developed on the branch `v2/platform`, verified locally and open as pull request #6. It uses the existing repository,
 the existing Supabase project and the existing Vercel project. No account, project, domain or paid
 service is added.
 
@@ -12,7 +12,7 @@ approval.
 
 | Item | State |
 | --- | --- |
-| Code | branch `v2/platform`, local commits, not pushed |
+| Code | branch `v2/platform`, pushed; pull request #6, opened as a draft so that it cannot be merged by accident before the migrations are applied |
 | Database migrations | applied to the local database only; production is at `20260922222344` |
 | Production site | version 1, unchanged |
 | Environment variables | unchanged; V2 adds none |
@@ -21,7 +21,7 @@ approval.
 
 | What | Value |
 | --- | --- |
-| Node.js | 20 or newer (as in CI) |
+| Node.js | 22 (as in CI) |
 | Supabase CLI | 2.x, for the local stack and for `db push` |
 | Docker | for the local stack |
 | Vercel | existing project, region `fra1`, one daily cron job |
@@ -72,13 +72,13 @@ Results of the last run: [report](PWANOVA_V2_REPORT.md).
 | # | Step | Who | Changes production |
 | --- | --- | --- | --- |
 | 1 | Review the branch: `git log main..v2/platform`, `git diff main...v2/platform --stat` | owner | no |
-| 2 | Push the branch and open a pull request | owner approves the push | no (a branch, not `main`) |
+| 2 | Push the branch and open a pull request | done on 2026-09-30 with the owner's approval: pull request #6 (draft) | no (a branch, not `main`) |
 | 3 | CI on the pull request: type check, lint, tests, build | automatic | no |
 | 4 | Read-only comparison of migrations: `supabase migration list --linked` | owner | no |
 | 5 | Backup of the production database | owner | no |
 | 6 | Apply the migrations: `supabase db push` | **owner** | **yes** |
 | 7 | Check version 1, which is still deployed, against the migrated database: start page, a listing, sign-in, a rating | owner | no |
-| 8 | Merge the pull request into `main`. A push to `main` deploys | **owner** | **yes** |
+| 8 | Mark the pull request as ready and merge it into `main`. A push to `main` deploys | **owner** | **yes** |
 | 9 | Checks after the deployment (section 6) | owner | no |
 | 10 | Enter the operator's details (section 7) | **owner** | yes |
 | 11 | Open the site to search engines when it is ready: `ALLOW_INDEXING=true` | **owner** | yes |

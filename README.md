@@ -26,8 +26,9 @@ Version 1 (closed beta): [audit](docs/beta-audit.md), [release checklist](docs/b
 [pilot](docs/beta-pilot.md), [production release of 2026-09-23](docs/production-release.md).
 Rules for everybody who works on this repository, people and agents: [AGENTS.md](AGENTS.md).
 
-**State of V2:** developed on the branch `v2/platform`, verified locally. Its migrations are not
-applied to production. Applying them, pushing to `main` and deploying are decisions of the owner.
+**State of V2:** developed on the branch `v2/platform`, verified locally, open as pull request #6.
+Its migrations are not applied to production. Applying them, merging to `main` and deploying are
+decisions of the owner, in this order.
 
 ## Local setup
 
