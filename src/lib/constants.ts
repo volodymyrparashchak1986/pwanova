@@ -95,10 +95,13 @@ export const EVENT_TYPES = [
   "share",
   "review",
   "rating",
+  "compare_added",
+  "follow",
+  "launch_view",
 ] as const
 export type EventType = (typeof EVENT_TYPES)[number]
 
-export const REPORT_REASONS = ["spam", "malicious", "impersonation", "inappropriate", "broken", "other"] as const
+export const REPORT_REASONS = ["spam", "malicious", "impersonation", "inappropriate", "broken", "incorrect_information", "outdated_evidence", "fake_review", "other"] as const
 
 export const labelFor = {
   category: (slug: string) => CATEGORIES.find((c) => c.slug === slug)?.name ?? "Other",
@@ -106,4 +109,3 @@ export const labelFor = {
   host: (slug: string) => HOSTS.find((c) => c.slug === slug)?.name ?? "Other",
 }
 
-export const PARTNER_COOKIE = "pwn_ref"

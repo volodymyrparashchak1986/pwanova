@@ -4,6 +4,7 @@ import { cleanHttpUrl, cleanText } from "@/lib/security/sanitize"
 import { domainOf, parsePublicUrl } from "@/lib/url"
 import type { HostProvider } from "@/lib/constants"
 import { detectHost } from "@/lib/analyzer-host"
+import { declaredLanguages, discoverLinks, type DocKind } from "@/lib/v2/verify/links"
 
 export interface AnalysisResult {
   url: string
@@ -21,6 +22,10 @@ export interface AnalysisResult {
   hostSignal: string | null
   isPwa: boolean
   isInstallable: boolean
+  /** Documents the start page links to. Candidates only: nothing here has been opened or verified yet. */
+  discovered: { kind: DocKind; url: string; text: string }[]
+  /** Languages the start page declares (html lang, hreflang). */
+  languages: string[]
   checks: {
     reachable: boolean
     https_ok: boolean | null
@@ -69,7 +74,7 @@ export async function analyzeUrl(input: string): Promise<AnalysisResult> {
   const notes: string[] = []
   const empty: AnalysisResult = {
     url: start.href, finalUrl: start.href, domain: domainOf(start), reachable: false, title: "", description: "", iconUrl: null,
-    ogImage: null, themeColor: null, manifestUrl: null, screenshots: [], host: "custom-domain", hostSignal: null, isPwa: false, isInstallable: false,
+    ogImage: null, themeColor: null, manifestUrl: null, screenshots: [], host: "custom-domain", hostSignal: null, isPwa: false, isInstallable: false, discovered: [], languages: [],
     checks: { reachable: false, https_ok: null, responsive: null, mobile_optimized: null, manifest_ok: null, service_worker_ok: null, installable: null, offline_support: null, push_support: null, security_ok: null, status_code: null, response_ms: null },
     notes,
   }
@@ -120,6 +125,8 @@ export async function analyzeUrl(input: string): Promise<AnalysisResult> {
     url: start.href, finalUrl: page.finalUrl, domain: domainOf(final), reachable, title, description,
     iconUrl: iconRaw, ogImage, themeColor, manifestUrl, screenshots, host, hostSignal: signal,
     isPwa: manifestOk, isInstallable: false,
+    discovered: reachable ? [...discoverLinks(html, page.finalUrl).values()].map(({ kind, url, text }) => ({ kind, url, text })) : [],
+    languages: reachable ? declaredLanguages(html) : [],
     checks: {
       reachable, https_ok: https && !page.redirectedToHttp, responsive: null,
       mobile_optimized: null,

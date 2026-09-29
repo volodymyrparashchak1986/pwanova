@@ -9,6 +9,7 @@
   --color-brand-2: var(--brand-2);
   --color-star: var(--star);
   --color-ok: var(--ok);
+  --color-warn: var(--warn);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
@@ -81,6 +82,7 @@
   --brand-2: oklch(0.72 0.14 215);
   --star: oklch(0.8 0.17 80);
   --ok: oklch(0.62 0.16 155);
+  --warn: oklch(0.62 0.15 60);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -114,6 +116,7 @@
   --brand-2: oklch(0.78 0.13 215);
   --star: oklch(0.82 0.16 82);
   --ok: oklch(0.75 0.16 155);
+  --warn: oklch(0.8 0.14 70);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -150,6 +153,14 @@
 @layer base {
   html { -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
   body { overscroll-behavior-y: none; }
+  /* A grid that names no columns has one column, as wide as its widest item. Make it as wide as the grid, so long text wraps or truncates instead of widening the page. */
+  .grid { grid-auto-columns: minmax(0, 1fr); }
+  /* A scrolling frame also holds what is positioned inside it, such as text that only screen readers get. Otherwise that text escapes the frame and widens the page. */
+  .overflow-x-auto, .overflow-auto, .overflow-x-scroll { position: relative; }
+  /* A control is never wider than the space it is in. */
+  select, input, textarea { max-width: 100%; }
+  /* German compounds are long. A heading breaks inside a long word, with a hyphen where the browser knows the language, instead of pushing the page wider than the screen. */
+  h1, h2, h3 { overflow-wrap: break-word; hyphens: auto; hyphenate-limit-chars: 14 6 6; -webkit-hyphenate-limit-before: 6; -webkit-hyphenate-limit-after: 6; }
   @media (display-mode: standalone) { body { user-select: none; -webkit-user-select: none; } input, textarea, [contenteditable] { user-select: text; -webkit-user-select: text; } }
 }
 

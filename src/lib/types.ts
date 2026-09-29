@@ -98,7 +98,7 @@ export interface Viewer {
   username: string
   displayName: string
   avatarUrl: string | null
-  role: "user" | "developer" | "admin" | "partner"
+  role: "user" | "developer" | "admin" | "partner" | "moderator"
 }
 
 export interface RatingBreakdown {

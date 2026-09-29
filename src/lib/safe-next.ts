@@ -1,3 +1,6 @@
+/** Where to go after signing in. Written by the sign-in form, read once and removed by the callback. */
+export const NEXT_COOKIE = "pwn_next"
+
 /** Same-origin paths only, including after browser URL normalization. */
 export function safeNext(next: string | null | undefined, fallback = "/"): string {
   if (!next || !next.startsWith("/") || /[\\\u0000-\u0020]/.test(next)) return fallback

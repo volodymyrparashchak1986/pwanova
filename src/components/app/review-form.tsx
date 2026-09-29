@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { deleteReview, saveReview } from "@/actions/engagement"
+import { useI18n } from "@/i18n/client"
+import { plural } from "@/i18n/format"
 import { cn } from "@/lib/utils"
 
 interface Draft { rating: number; title: string; body: string; id?: string; ownerId?: string | null }
@@ -77,6 +79,7 @@ export function ReviewForm(props: Props) {
 
 function ReviewFormInner({ appId, slug, signedIn, viewerId, existing, defaultRating, draft }: Props & { draft: Draft | null }) {
   const router = useRouter()
+  const { t, locale, href } = useI18n()
   const [open, setOpen] = useState(Boolean(draft))
   // stars the user picked inside this form; otherwise fall back to their saved rating (which can change via the RateBox)
   const [picked, setPicked] = useState(existing?.rating ?? draft?.rating ?? 0)
@@ -94,14 +97,14 @@ function ReviewFormInner({ appId, slug, signedIn, viewerId, existing, defaultRat
   }, [open, existing, appId, rating, title, body, viewerId])
 
   if (!open) {
-    return <Button variant="outline" className="rounded-full" onClick={() => setOpen(true)}>{existing ? "Edit your review" : "Write a review"}</Button>
+    return <Button variant="outline" className="rounded-full" onClick={() => setOpen(true)}>{existing ? t.reviews.edit : t.reviews.write}</Button>
   }
   return (
     <form className="space-y-3 rounded-2xl border border-border bg-card p-4" onSubmit={(e) => {
       e.preventDefault()
       if (!signedIn) {
         const recovery = writeDraft(appId, { rating, title, body }, null) // opaque capability; contains no review text
-        router.push(`/sign-in?next=${encodeURIComponent(`/apps/${slug}?reviewDraft=${recovery}#reviews`)}`)
+        router.push(`${href("/sign-in")}?next=${encodeURIComponent(`${href(`/apps/${slug}`)}?reviewDraft=${recovery}#reviews`)}`)
         return
       }
       start(async () => {
@@ -109,23 +112,23 @@ function ReviewFormInner({ appId, slug, signedIn, viewerId, existing, defaultRat
         if (r.ok) { toast.success(r.message); clearDraft(appId); setOpen(false) } else toast.error(r.error)
       })
     }}>
-      {!signedIn && <p className="rounded-xl bg-accent/60 p-2.5 text-xs text-accent-foreground">Write it now — you&apos;ll be asked to sign in only when you post, and what you wrote here is kept.</p>}
-      <div className="flex gap-1" role="radiogroup" aria-label="Rating">
+      {!signedIn && <p className="rounded-xl bg-accent/60 p-2.5 text-xs text-accent-foreground">{t.reviews.draftKept}</p>}
+      <div className="flex gap-1" role="radiogroup" aria-label={t.reviews.yourRating}>
         {[1, 2, 3, 4, 5].map((n) => (
-          <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} stars`} onClick={() => setPicked(n)}>
+          <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={plural(locale, n, t.reviews.nStars)} onClick={() => setPicked(n)}>
             <Star className={cn("size-7", n <= rating ? "fill-star text-star" : "text-muted-foreground/40")} strokeWidth={1.5} />
           </button>
         ))}
       </div>
-      <Input placeholder="Title (optional)" maxLength={100} value={title} onChange={(e) => setTitle(e.target.value)} />
-      <Textarea placeholder="What do you like? What could be better?" required minLength={10} maxLength={3000} rows={5} value={body} onChange={(e) => setBody(e.target.value)} />
+      <Input placeholder={t.reviews.titlePlaceholder} aria-label={t.reviews.titlePlaceholder} maxLength={100} value={title} onChange={(e) => setTitle(e.target.value)} />
+      <Textarea placeholder={t.reviews.bodyPlaceholder} aria-label={t.reviews.bodyPlaceholder} required minLength={10} maxLength={3000} rows={5} value={body} onChange={(e) => setBody(e.target.value)} />
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" disabled={pending || !rating}>{signedIn ? (existing ? "Save changes" : "Post review") : "Sign in to post"}</Button>
-        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+        <Button type="submit" disabled={pending || !rating}>{signedIn ? (existing ? t.reviews.saveChanges : t.reviews.post) : t.reviews.signInToPost}</Button>
+        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>{t.common.cancel}</Button>
         {existing && <Button type="button" variant="destructive" className="ml-auto" disabled={pending} onClick={() => start(async () => {
           const r = await deleteReview(appId)
           if (r.ok) { toast.success(r.message); setOpen(false); setBody(""); setTitle("") } else toast.error(r.error)
-        })}>Delete review text</Button>}
+        })}>{t.reviews.deleteText}</Button>}
       </div>
     </form>
   )

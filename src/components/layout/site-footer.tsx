@@ -1,31 +1,50 @@
-import Link from "next/link"
+import { Link } from "@/components/i18n/link"
+import { LocaleSwitcher } from "./locale-switcher"
 import { Logo } from "./logo"
+import { NewsletterForm } from "./newsletter-form"
+import { ThemeToggle } from "./theme-toggle"
+import { getI18n } from "@/i18n/server"
+import { getPublicSettings } from "@/lib/data/catalog"
 
-const COLS = [
-  { title: "Discover", links: [["Explore", "/explore"], ["Top Apps", "/top"], ["Trending", "/trending"], ["New & Rising", "/new"], ["Categories", "/categories"]] },
-  { title: "Developers", links: [["Ship Your App", "/ship"], ["For Developers", "/for-developers"], ["Dashboard", "/dashboard"], ["Pricing", "/pricing"]] },
-  { title: "Partners", links: [["Launch boards", "/partners"], ["Public API", "/partners#api"], ["Embed badges", "/partners#badges"]] },
-]
-
-export function SiteFooter() {
+export async function SiteFooter() {
+  const [{ t }, settings] = await Promise.all([getI18n(), getPublicSettings()])
+  const l = t.footer.links
+  const columns = [
+    { title: t.footer.columns.discover, links: [[l.discover, "/discover"], [l.categories, "/categories"], settings.features.compare && [l.compare, "/compare"], settings.features.launches && [l.launches, "/launches"], settings.features.requests && [l.requests, "/requests"]] },
+    { title: t.footer.columns.makers, links: [[l.submit, "/submit"], [l.forMakers, "/for-makers"], [l.pricing, "/pricing"], [l.dashboard, "/dashboard"], [l.partners, "/partners"]] },
+    { title: t.footer.columns.transparency, links: [[l.methodology, "/verification-methodology"], [l.ranking, "/how-ranking-works"], [l.sponsorship, "/sponsorship"], [l.reviewRules, "/review-rules"]] },
+    { title: t.footer.columns.legal, links: [[l.imprint, "/legal/imprint"], [l.privacy, "/legal/privacy"], [l.terms, "/legal/terms"]] },
+  ]
   return (
-    <footer className="mt-24 hidden border-t border-border md:block">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 md:grid-cols-[1.4fr_repeat(3,1fr)]">
+    <footer className="mt-24 border-t border-border pb-24 lg:pb-0">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 md:grid-cols-2 lg:grid-cols-[1.5fr_repeat(4,1fr)]">
         <div>
           <Logo />
-          <p className="mt-3 max-w-xs text-sm text-muted-foreground">The distribution layer for the open web. Discover. Trust. Install.</p>
-          <p className="mt-6 text-xs text-muted-foreground">Traditional app stores remain important. PWANova gives modern web apps another path to be found and trusted.</p>
+          <p className="mt-3 max-w-sm text-sm text-muted-foreground">{t.footer.about}</p>
+          <p className="mt-4 max-w-sm text-xs text-muted-foreground">{t.footer.disclaimer}</p>
+          <div className="mt-5 flex items-center gap-2"><LocaleSwitcher full /><ThemeToggle /></div>
         </div>
-        {COLS.map((c) => (
-          <div key={c.title}>
-            <h3 className="text-sm font-semibold">{c.title}</h3>
+        {columns.map((c) => (
+          <nav key={c.title} aria-label={c.title}>
+            <h2 className="text-sm font-semibold">{c.title}</h2>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              {c.links.map(([label, href]) => <li key={href}><Link className="hover:text-foreground" href={href}>{label}</Link></li>)}
+              {c.links.filter((x): x is [string, string] => Boolean(x)).map(([label, href]) => <li key={href}><Link className="hover:text-foreground" href={href}>{label}</Link></li>)}
             </ul>
-          </div>
+          </nav>
         ))}
       </div>
-      <div className="border-t border-border py-5 text-center text-xs text-muted-foreground">© {new Date().getFullYear()} PWANova. Third-party names are used for attribution only and do not imply endorsement.</div>
+      {settings.features.newsletter && (
+        <div className="border-t border-border">
+          <div className="mx-auto grid max-w-7xl gap-4 px-4 py-8 md:grid-cols-[1fr_auto] md:items-center">
+            <div>
+              <h2 className="text-sm font-semibold">{t.footer.newsletterTitle}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{t.footer.newsletterBody}</p>
+            </div>
+            <NewsletterForm source="footer" />
+          </div>
+        </div>
+      )}
+      <div className="border-t border-border px-4 py-5 text-center text-xs text-muted-foreground">© {new Date().getFullYear()} PWANova. {t.footer.rights}</div>
     </footer>
   )
 }
