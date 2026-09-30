@@ -1,6 +1,6 @@
 # PWANova V2 — deployment
 
-V2 is developed on the branch `v2/platform`, verified locally and open as pull request #6. It uses the existing repository,
+V2 was developed on the branch `v2/platform`, verified locally, and released on 2026-09-30 through pull request #6. It uses the existing repository,
 the existing Supabase project and the existing Vercel project. No account, project, domain or paid
 service is added.
 
@@ -12,9 +12,9 @@ approval.
 
 | Item | State |
 | --- | --- |
-| Code | branch `v2/platform`, pushed; pull request #6, opened as a draft so that it cannot be merged by accident before the migrations are applied |
+| Code | merged into `main` on 2026-09-30 (pull request #6, merge commit `3d3a53b`) |
 | Database migrations | applied to production on 2026-09-30 (20 versions in the history, [migration, section 4a](PWANOVA_V2_MIGRATION.md)) |
-| Production site | version 1, running on the migrated database |
+| Production site | V2, deployed on 2026-09-30 by the gated GitHub Actions job (run 36774442215) |
 | Environment variables | unchanged; V2 adds none |
 
 ## 2. Requirements
@@ -78,8 +78,8 @@ Results of the last run: [report](PWANOVA_V2_REPORT.md).
 | 5 | Backup of the production database | done 2026-09-30 (`~/pwanova-backups/2026-09-30-before-v2/`) | no |
 | 6 | Apply the migrations ([migration, section 4a](PWANOVA_V2_MIGRATION.md)) | done 2026-09-30 with the owner's approval | **yes** |
 | 7 | Check version 1, which is still deployed, against the migrated database | done 2026-09-30: all pages 200, 26 listings, API and badge answer | no |
-| 8 | Mark the pull request as ready and merge it into `main`. A push to `main` deploys | **owner** | **yes** |
-| 9 | Checks after the deployment (section 6) | owner | no |
+| 8 | Mark the pull request as ready and merge it into `main`. A push to `main` deploys | done 2026-09-30 with the owner's approval | **yes** |
+| 9 | Checks after the deployment (section 6) | done 2026-09-30, see below | no |
 | 10 | Enter the operator's details (section 7) | **owner** | yes |
 | 11 | Open the site to search engines when it is ready: `ALLOW_INDEXING=true` | **owner** | yes |
 
@@ -104,7 +104,19 @@ new Supabase project or branch is created without the owner's decision.
 
 ## 6. Checks after the deployment
 
-Reading only, in a private window:
+Done on 2026-09-30, about ten minutes after the merge, reading only: `/` answers 307 to `/en` or
+`/de` by language; `/explore`, `/top`, `/ship`, `/for-developers`, `/activity` and
+`/categories/fitness` arrive at their new addresses; every page below in both languages, a
+comparison of two listings, the public API (`/api/v1/apps`, one listing, its evidence, by domain,
+categories, facts), the version-1 endpoint, the badge in both languages, the embed, the sitemap
+(104 addresses, both languages, `hreflang`), `robots.txt`, the manifest and the offline page
+answered 200; `/api/cron/health` without the secret answered 401; a plain visit set no cookie; the
+structured data of a listing carried no rating; the browser console showed no error; Vercel
+reported no runtime error; the first page view was recorded with its language edition. The daily
+job had not run yet, so no verification run existed. `robots.txt` still disallows everything, as
+`ALLOW_INDEXING` is not set.
+
+The list, for the next release. Reading only, in a private window:
 
 1. `/` redirects to `/en` or `/de`; no cookie is set.
 2. `/explore`, `/top`, `/ship`, `/categories/fitness` arrive at their new addresses.
