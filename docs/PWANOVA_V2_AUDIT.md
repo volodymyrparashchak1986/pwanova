@@ -91,8 +91,10 @@ immutable, owners could not rate their own apps, and moderation left a record in
 ## 5. Risks found during the audit
 
 1. **The Supabase project is shared.** Project `nnkdvisfstrcvrpkbsye` also holds the tables of another
-   application (`public.business_*`), two of its migration versions and its users. V2 migrations name
+   application (`public.business_*`), its migration versions and its users. V2 migrations name
    every object they touch and never iterate over "all tables" or "all functions" of the schema.
+   Because both applications write to one migration history, the Supabase CLI refuses to push for
+   either of them; see [migration, section 4](PWANOVA_V2_MIGRATION.md).
 2. **Production data must survive.** All V2 migrations are additive. No column, row, id or slug is
    dropped or rewritten. `apps.category` (text) stays next to the new taxonomy.
 3. **Old addresses are linked from outside** (badges, embeds, partner boards, search engines). Every

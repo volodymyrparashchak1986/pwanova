@@ -22,7 +22,7 @@ approval.
 | What | Value |
 | --- | --- |
 | Node.js | 22 (as in CI) |
-| Supabase CLI | 2.x, for the local stack and for `db push` |
+| Supabase CLI | 2.x, for the local stack |
 | Docker | for the local stack |
 | Vercel | existing project, region `fra1`, one daily cron job |
 
@@ -74,9 +74,9 @@ Results of the last run: [report](PWANOVA_V2_REPORT.md).
 | 1 | Review the branch: `git log main..v2/platform`, `git diff main...v2/platform --stat` | owner | no |
 | 2 | Push the branch and open a pull request | done on 2026-09-30 with the owner's approval: pull request #6 (draft) | no (a branch, not `main`) |
 | 3 | CI on the pull request: type check, lint, tests, build | automatic | no |
-| 4 | Read-only comparison of migrations: `supabase migration list --linked` | owner | no |
+| 4 | Read-only look at production: done on 2026-09-30 ([migration, section 4](PWANOVA_V2_MIGRATION.md)). Plan of the migration: `scripts/apply-migrations.sh --dry-run` | owner | no |
 | 5 | Backup of the production database | owner | no |
-| 6 | Apply the migrations: `supabase db push` | **owner** | **yes** |
+| 6 | Apply the migrations: `scripts/apply-migrations.sh` ([migration, section 4a](PWANOVA_V2_MIGRATION.md)). `supabase db push` refuses, because the history holds a version of the other application | **owner** | **yes** |
 | 7 | Check version 1, which is still deployed, against the migrated database: start page, a listing, sign-in, a rating | owner | no |
 | 8 | Mark the pull request as ready and merge it into `main`. A push to `main` deploys | **owner** | **yes** |
 | 9 | Checks after the deployment (section 6) | owner | no |

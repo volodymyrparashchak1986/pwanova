@@ -144,6 +144,7 @@ npm run verify:supabase   # checks of version 1 against the local stack
 npx playwright install chromium
 npm run test:e2e
 npm run db:types          # regenerate src/lib/database.types.ts from the local database
+npm run db:apply -- --local --dry-run   # which migrations the local database is missing
 ```
 
 `npm test` uses the Node test runner and PGlite (Postgres in process): schema from scratch, upgrade

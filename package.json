@@ -15,6 +15,7 @@
     "verify:supabase": "node --env-file=.env.local --import tsx scripts/verify-supabase.ts",
     "env:local": "node scripts/env-local-first.mjs",
     "db:types": "supabase gen types typescript --local --schema public > src/lib/database.types.ts",
+    "db:apply": "bash scripts/apply-migrations.sh",
     "import:apps": "node --conditions=react-server --env-file=.env.local --import tsx scripts/import-apps.ts",
     "test:e2e": "playwright test"
   },

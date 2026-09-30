@@ -5,7 +5,8 @@ additive: no table, column, row, id or slug is dropped, renamed or rewritten.
 
 **State at the time of writing: the migrations are applied to the local database only. Production
 is at `20260922222344`.** Applying them to production is a decision of the owner and a separate,
-explicit step ([deployment](PWANOVA_V2_DEPLOYMENT.md)).
+explicit step ([deployment](PWANOVA_V2_DEPLOYMENT.md)). `supabase db push` cannot be used for it;
+section 4 says why and what is used instead.
 
 ## 1. The migrations, in order
 
@@ -77,28 +78,107 @@ schema and pass.
 The tests run on PGlite (Postgres in process). The local Supabase stack is the second, independent
 check with the real extensions and the real auth schema.
 
-## 4. Before applying to production
+## 4. Production as it is (read on 2026-09-30, without writing)
 
-To be done by the owner, in this order. Steps 1 to 3 only read.
+Read through the project's read-only connection. Nothing was changed.
 
-1. `supabase migration list --linked`: production shows the versions up to `20260922222344`, the
-   eleven V2 versions are local only, and nothing else differs.
-2. Take a backup: a dump into a private directory with owner-only permissions (`supabase db dump`
-   is itself a production operation that the owner starts), or a backup from the dashboard where the
-   plan offers one. There is no down migration; the backup is the way back for data.
-3. Check that no listing has a `category` outside the 16 known slugs:
-   `select category, count(*) from public.apps group by 1;` Such a listing would keep its value and
-   get no V2 category until one is chosen in the dashboard.
-4. Apply: `supabase db push`, without `--include-seed`: the seed files contain sample listings for
-   local development and do not belong in production. The migrations run in order. A failure stops the push; migrations
-   that completed before it stay applied, and the push can be repeated after the cause is fixed.
-5. Check: `supabase migration list --linked` shows all versions on both sides.
+| Item | State |
+| --- | --- |
+| PostgreSQL | 17.6 |
+| Extensions `pg_trgm`, `unaccent` | available, not installed yet; the first migration installs them into `extensions` |
+| Listings | 27: 26 published, 1 waiting for review; no sample data |
+| Categories of the listings | 10 different slugs, all of them among the 16 that V2 maps |
+| Ownership | 3 listings have a submitter, none has verified ownership; 3 claims are pending |
+| Checks of version 1 | 27 rows: 27 reachable, 27 over HTTPS, 14 with a manifest. They become the first evidence |
+| Ratings, reviews, saves, reports | none |
+| Profiles | 2, one of them admin |
+| Names that V2 creates (38 tables, 2 views, 18 columns on `apps`) | none exists yet: no collision |
+| The other application | its tables and functions all begin with `business_`; none of them uses a function, table or policy of PWANova; its only shared dependency is `auth.users` |
+| Migration history | the eight versions of this repository **and one version of the other application, `20260924184739`**, which has no file here |
+
+### The Supabase CLI cannot apply these migrations
+
+`supabase db push` and `supabase migration up` compare the history of the database with the files
+of the repository and stop when the history holds a version without a file:
+
+```text
+Remote migration versions not found in local migrations directory.
+… try repairing the migration history table:
+supabase migration repair --status reverted 20260924184739
+```
+
+`--include-all` does not change this. Reproduced on the local database with the same history as
+production, with both commands.
+
+Both ways out that the CLI offers are closed:
+
+| Way | Why not |
+| --- | --- |
+| mark `20260924184739` as reverted | it is the migration of another application and it is applied; the history would say something false |
+| add an empty file with that version | a placeholder says nothing about what ran; the rules of this repository forbid new ones |
+
+This is a consequence of two applications recording their migrations in one table. It will meet
+the other application as well: once the eleven versions of V2 are recorded, its CLI finds eleven
+versions without a file. Giving each application its own project ends this; that is a decision of
+the owner and not part of this release.
+
+### `scripts/apply-migrations.sh`
+
+Does what `supabase db push` does, and leaves versions alone that are not from this repository:
+
+1. reads the history of the target and the files in `supabase/migrations/`;
+2. lists the versions that are foreign, and the files that are pending, in order;
+3. stops if a pending file is older than a version of this repository that is applied already;
+4. applies each pending file in one transaction together with its row in
+   `supabase_migrations.schema_migrations` (version, name, the statements);
+5. stops at the first failure; the failed migration is rolled back, earlier ones stay applied.
+
+It refuses every target except the local stack unless `ALLOW_PRODUCTION_TARGET` names the project,
+takes the connection from the environment (`PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`,
+`PGDATABASE`), never prints the password and never passes it as an argument. It uses `psql` from
+the database container of the local stack, so nothing has to be installed. `--dry-run` prints the
+plan and changes nothing.
+
+### Rehearsal (2026-09-30, local stack, PostgreSQL 17)
+
+| Step | Command | Result |
+| --- | --- | --- |
+| Database of version 1 with data | `supabase db reset --local --version 20260922222344 --sql-paths ./seed.sql` | 18 tables, 15 listings, 30 reviews, 490 ratings, 431 saves, 70 users |
+| History as in production | one row `20260924184739` inserted into the local history | 9 versions |
+| The CLI | `supabase db push --local --dry-run`, `supabase migration up --local`, each also with `--include-all` | refused, with the message above |
+| Plan | `scripts/apply-migrations.sh --local --dry-run` | 8 applied, 1 foreign and left alone, 11 to apply |
+| Apply | `scripts/apply-migrations.sh --local` | 11 applied, 20 versions in the history, the foreign row untouched |
+| Data | counts, and checksums over ids, slugs, owners, categories, states and addresses of all listings and over all reviews, before and after | identical |
+| Upgrade | categories and search documents | 15 of 15 listings |
+| Facts | `app_facts` | only `https`, `pwa_manifest`, `website_reachable`; no vendor statement |
+| Second run | `scripts/apply-migrations.sh --local` | nothing to apply |
+| Checks of version 1 | `npm run verify:supabase` | 39 of 39 |
+| End-to-end tests | `npx playwright test` | 16 of 16 |
+| Schema | `pg_dump --schema-only --schema=public` of this database and of one built by `supabase db reset --local` | identical, 4071 lines each |
+
+## 4a. Applying to production
+
+To be done by the owner, or with the owner's explicit approval for each step that writes.
+
+1. Take a backup: a dump into a private directory with owner-only permissions (`supabase db dump`
+   is itself a production operation that the owner starts), or a backup from the dashboard where
+   the plan offers one. There is no down migration; the backup is the way back for data.
+2. Connection: in the Supabase dashboard, "Connect" → **Session pooler**. It answers over IPv4 and
+   keeps a session, which transactions with schema changes need. The direct connection is IPv6
+   only. The user has the form `postgres.<project_ref>`.
+3. Plan, without writing:
+   `PGHOST=… PGPORT=5432 PGUSER=postgres.<ref> PGPASSWORD=… ALLOW_PRODUCTION_TARGET=<ref> scripts/apply-migrations.sh --dry-run`.
+   Expected: 8 applied, `20260924184739` foreign, 11 to apply.
+4. Apply: the same command without `--dry-run`. Each migration finishes in seconds. Seed files are
+   never applied by this script; they contain sample listings for local development.
+5. Check: the script prints the history, 20 versions. The version-1 site, which is still deployed,
+   keeps working: start page, a listing, sign-in.
 6. Deploy the application ([deployment](PWANOVA_V2_DEPLOYMENT.md)).
 
 ### Expected duration and locks
 
-The catalogue is small (tens of listings). Every migration finishes in seconds. `alter table apps
-add column` takes a short exclusive lock on `apps`; the backfills touch every listing once.
+The catalogue is small (27 listings). `alter table apps add column` takes a short exclusive lock on
+`apps`; the backfills touch every listing once.
 
 ## 5. Order of database and application
 

@@ -43,8 +43,11 @@ Details: [data model](PWANOVA_V2_DATA_MODEL.md), [migration](PWANOVA_V2_MIGRATIO
 
 ## 3. Existing data
 
-Production data was neither read nor written during this work. What the migrations will do to it
-when the owner applies them:
+Production data was not written during this work. It was read once, on 2026-09-30, through the
+project's read-only connection, to prepare the migration: 27 listings, no ratings or reviews yet,
+no name that V2 creates exists, and nothing of the other application depends on PWANova
+([migration, section 4](PWANOVA_V2_MIGRATION.md)). What the migrations will do when the owner
+applies them:
 
 - listings, ratings, reviews, saves, ownership, claims, partners, events and users stay as they are;
 - every listing gets its V2 category from its version-1 category (all 16 slugs are mapped), the
@@ -124,6 +127,7 @@ All commands were run in the root of the repository on commit `4b04af1` unless n
 | `npx playwright test` against the production build (`npm run start`, local stack) | 16 of 16 passed |
 | Clean checkout (`git worktree`), `npm ci`, then type check, lint, tests, build | all passed; 240 of 240 tests |
 | `supabase db reset --local` | all migrations and both seeds applied |
+| Rehearsal of the production migration on a local copy with the history of production ([migration, section 4](PWANOVA_V2_MIGRATION.md)) | data identical before and after; schema identical to the one the CLI builds; 39 of 39 checks and 16 of 16 journeys on the migrated database |
 
 Tests per file (`npm test`):
 
@@ -188,7 +192,7 @@ Each production action needs its own explicit approval.
 | --- | --- |
 | 1 | Review pull request #6 (the branch was pushed and the pull request opened on 2026-09-30 with the owner's approval) |
 | 2 | Back up the production database |
-| 3 | Apply the migrations (`supabase db push`, without `--include-seed`) |
+| 3 | Apply the migrations with `scripts/apply-migrations.sh`; `supabase db push` refuses because the history of the shared project holds a version of the other application |
 | 4 | Check the running version-1 site on the migrated database |
 | 5 | Mark the pull request as ready and merge to `main`, which deploys |
 | 6 | Run the checks after the deployment ([deployment, section 6](PWANOVA_V2_DEPLOYMENT.md)) |
@@ -216,5 +220,5 @@ Each production action needs its own explicit approval.
 | No content security policy for pages | planned, needs nonces for two inline scripts |
 | Search has no synonyms and knows English and German word forms | other languages match by exact words and similar spelling |
 | Launch order and "popular" lists need engagement of signed-in people | with little traffic the lists are short or hidden; nothing is filled in |
-| The Supabase project is shared with another application | every migration names its objects; a restore of a backup would affect both |
+| The Supabase project is shared with another application | every migration names its objects; a restore of a backup would affect both; the Supabase CLI can push migrations for neither application while the other one's versions are in the history |
 | Sample listings exist in the local seed only | production shows real listings only; most of their facts start as unknown |
