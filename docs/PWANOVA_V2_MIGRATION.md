@@ -3,10 +3,8 @@
 Eleven migrations turn the database of version 1 into the database of V2. All of them are
 additive: no table, column, row, id or slug is dropped, renamed or rewritten.
 
-**State at the time of writing: the migrations are applied to the local database only. Production
-is at `20260922222344`.** Applying them to production is a decision of the owner and a separate,
-explicit step ([deployment](PWANOVA_V2_DEPLOYMENT.md)). `supabase db push` cannot be used for it;
-section 4 says why and what is used instead.
+**State: applied to production on 2026-09-30 with the owner's approval** (section 4a). `supabase db
+push` could not be used; section 4 says why and what was used instead.
 
 ## 1. The migrations, in order
 
@@ -156,24 +154,42 @@ plan and changes nothing.
 | End-to-end tests | `npx playwright test` | 16 of 16 |
 | Schema | `pg_dump --schema-only --schema=public` of this database and of one built by `supabase db reset --local` | identical, 4071 lines each |
 
-## 4a. Applying to production
+## 4a. How production was migrated (2026-09-30)
 
-To be done by the owner, or with the owner's explicit approval for each step that writes.
+Every step was run by the agent with the owner's approval of each command (the commands are gated
+by `.claude/settings.json`). No database password was handled: the Supabase CLI's stored login was
+used, and each statement went through `supabase db query --linked --project-ref nnkdvisfstrcvrpkbsye`.
 
-1. Take a backup: a dump into a private directory with owner-only permissions (`supabase db dump`
-   is itself a production operation that the owner starts), or a backup from the dashboard where
-   the plan offers one. There is no down migration; the backup is the way back for data.
-2. Connection: in the Supabase dashboard, "Connect" → **Session pooler**. It answers over IPv4 and
-   keeps a session, which transactions with schema changes need. The direct connection is IPv6
-   only. The user has the form `postgres.<project_ref>`.
-3. Plan, without writing:
-   `PGHOST=… PGPORT=5432 PGUSER=postgres.<ref> PGPASSWORD=… ALLOW_PRODUCTION_TARGET=<ref> scripts/apply-migrations.sh --dry-run`.
-   Expected: 8 applied, `20260924184739` foreign, 11 to apply.
-4. Apply: the same command without `--dry-run`. Each migration finishes in seconds. Seed files are
-   never applied by this script; they contain sample listings for local development.
-5. Check: the script prints the history, 20 versions. The version-1 site, which is still deployed,
-   keeps working: start page, a listing, sign-in.
-6. Deploy the application ([deployment](PWANOVA_V2_DEPLOYMENT.md)).
+| Step | What | Result |
+| --- | --- | --- |
+| Backup | `supabase db dump --linked --project-ref …` three times: the schema `public`; the data of PWANova's tables (`--data-only --use-copy`, the other application's tables excluded with `-x`); the migration history. Into `~/pwanova-backups/2026-09-30-before-v2/`, directory `700`, files `600` | 27 listings, 27 checks, 8 screenshots, 3 claims, 13 events, 2 profiles, 1 source, 4 rate-limit rows; 9 history rows |
+| Baseline | checksums over ids, slugs, owners, categories, states, addresses and texts of all listings; over profiles, claims, events, screenshots, users; the live site | recorded |
+| Statements | `scripts/apply-migrations.sh --emit <dir> --from 20260929100000`; each file checked to contain exactly its migration | 11 files |
+| Apply | one `supabase db query … -f <file>` per migration, in order, each a single statement (one transaction) with the guards described above | 1–4 at about 00:50 UTC; the desktop app then quit; 5–11 at about 11:15 UTC |
+| In between | version 1 kept running on the partially migrated schema, including its daily job at 04:14 UTC | no error; the job re-checked 10 listings with the same results |
+
+Checked afterwards through the read-only connection:
+
+| Check | Result |
+| --- | --- |
+| History | 20 versions: 8 of version 1, the other application's `20260924184739` untouched, 11 of V2 |
+| Objects | 56 PWANova tables, 3 views, 143 policies, 95 functions — the same numbers as the local database |
+| Listings, profiles, claims, events, screenshots, users | checksums identical to the baseline |
+| Checks of version 1 (`app_checks`) | 17 rows identical; 10 rows re-checked by the daily job at 04:14 UTC with identical results and a new timestamp |
+| Upgrade | 27 of 27 listings have a category and a search document; state `partially_verified` (three observed facts) |
+| Facts | `https`, `pwa_manifest`, `website_reachable`, 27 each, from the checks of version 1; no vendor statement |
+| Registry and settings | 31 facts, 24 categories, 7 plans, `monetization.enforced = false` |
+| Catalogue | `catalog_apps` and `apps_public` both list the 26 published listings |
+| Live site (version 1) | `/`, `/explore` (26 listings), `/categories`, a listing, `/sign-in`, `/dashboard`, `/partners`, the public API, the badge, `robots.txt`, `sitemap.xml`: all 200 |
+
+The migration files were not changed for this; the statement files are generated from them.
+
+### For a future migration
+
+The same route: `scripts/apply-migrations.sh --emit <dir> --from <first new version>`, then one approved
+`supabase db query --linked --project-ref <ref> -f <file>` per migration, then the checks above. With
+the database password at hand, `scripts/apply-migrations.sh` with `PG*` variables and
+`ALLOW_PRODUCTION_TARGET` does the same in one run (session pooler: IPv4, user `postgres.<ref>`).
 
 ### Expected duration and locks
 

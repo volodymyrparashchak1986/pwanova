@@ -13,8 +13,8 @@ approval.
 | Item | State |
 | --- | --- |
 | Code | branch `v2/platform`, pushed; pull request #6, opened as a draft so that it cannot be merged by accident before the migrations are applied |
-| Database migrations | applied to the local database only; production is at `20260922222344` |
-| Production site | version 1, unchanged |
+| Database migrations | applied to production on 2026-09-30 (20 versions in the history, [migration, section 4a](PWANOVA_V2_MIGRATION.md)) |
+| Production site | version 1, running on the migrated database |
 | Environment variables | unchanged; V2 adds none |
 
 ## 2. Requirements
@@ -75,9 +75,9 @@ Results of the last run: [report](PWANOVA_V2_REPORT.md).
 | 2 | Push the branch and open a pull request | done on 2026-09-30 with the owner's approval: pull request #6 (draft) | no (a branch, not `main`) |
 | 3 | CI on the pull request: type check, lint, tests, build | automatic | no |
 | 4 | Read-only look at production: done on 2026-09-30 ([migration, section 4](PWANOVA_V2_MIGRATION.md)). Plan of the migration: `scripts/apply-migrations.sh --dry-run` | owner | no |
-| 5 | Backup of the production database | owner | no |
-| 6 | Apply the migrations: `scripts/apply-migrations.sh` ([migration, section 4a](PWANOVA_V2_MIGRATION.md)). `supabase db push` refuses, because the history holds a version of the other application | **owner** | **yes** |
-| 7 | Check version 1, which is still deployed, against the migrated database: start page, a listing, sign-in, a rating | owner | no |
+| 5 | Backup of the production database | done 2026-09-30 (`~/pwanova-backups/2026-09-30-before-v2/`) | no |
+| 6 | Apply the migrations ([migration, section 4a](PWANOVA_V2_MIGRATION.md)) | done 2026-09-30 with the owner's approval | **yes** |
+| 7 | Check version 1, which is still deployed, against the migrated database | done 2026-09-30: all pages 200, 26 listings, API and badge answer | no |
 | 8 | Mark the pull request as ready and merge it into `main`. A push to `main` deploys | **owner** | **yes** |
 | 9 | Checks after the deployment (section 6) | owner | no |
 | 10 | Enter the operator's details (section 7) | **owner** | yes |

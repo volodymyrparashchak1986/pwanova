@@ -2,8 +2,9 @@
 
 Date: 2026-09-30. Branch `v2/platform` on top of `main` (`cac752c`). The results below were
 produced on commit `4b04af1`; this report was added after it.
-**The branch is pushed and open as pull request #6 (draft). Production runs version 1 and was
-not touched; the migrations are not applied there.**
+**The branch is pushed and open as pull request #6 (draft). The eleven migrations were applied to
+production on 2026-09-30 with the owner's approval; the site still runs version 1 on the migrated
+database until the pull request is merged.**
 
 Every result below was produced by a command that was actually run on that date. Where something
 was not run or not measured, it says so.
@@ -35,19 +36,21 @@ was not run or not measured, it says so.
 - Eleven additive migrations, `20260929100000` to `20260929101000`: 38 new tables, 2 new views,
   new columns on `apps`, `profiles`, `reviews`, `reports`. Nothing dropped or renamed.
 - Row level security on all 56 tables of the application.
-- Applied to the **local** database only. `supabase db reset --local` applied all 19 migration
-  files of the repository from an empty database, followed by both seed files, without error.
+- `supabase db reset --local` applied all 19 migration files of the repository from an empty
+  database, followed by both seed files, without error.
+- Applied to production on 2026-09-30, one approved statement per migration, after a backup; the
+  other application's history entry was left alone. Checks afterwards: [migration, section 4a](PWANOVA_V2_MIGRATION.md).
 - Generated types: `src/lib/database.types.ts` (`npm run db:types`).
 
 Details: [data model](PWANOVA_V2_DATA_MODEL.md), [migration](PWANOVA_V2_MIGRATION.md).
 
 ## 3. Existing data
 
-Production data was not written during this work. It was read once, on 2026-09-30, through the
-project's read-only connection, to prepare the migration: 27 listings, no ratings or reviews yet,
-no name that V2 creates exists, and nothing of the other application depends on PWANova
-([migration, section 4](PWANOVA_V2_MIGRATION.md)). What the migrations will do when the owner
-applies them:
+Production data was read on 2026-09-30 to prepare the migration (27 listings, no ratings or
+reviews yet, no name that V2 creates existed, nothing of the other application depends on PWANova)
+and written to by the migrations only. Checksums of listings, profiles, claims, events, screenshots
+and users are identical before and after ([migration, section 4a](PWANOVA_V2_MIGRATION.md)). What the
+migrations did:
 
 - listings, ratings, reviews, saves, ownership, claims, partners, events and users stay as they are;
 - every listing gets its V2 category from its version-1 category (all 16 slugs are mapped), the
@@ -191,9 +194,9 @@ Each production action needs its own explicit approval.
 | # | Action |
 | --- | --- |
 | 1 | Review pull request #6 (the branch was pushed and the pull request opened on 2026-09-30 with the owner's approval) |
-| 2 | Back up the production database |
-| 3 | Apply the migrations with `scripts/apply-migrations.sh`; `supabase db push` refuses because the history of the shared project holds a version of the other application |
-| 4 | Check the running version-1 site on the migrated database |
+| 2 | Back up the production database — done 2026-09-30 |
+| 3 | Apply the migrations — done 2026-09-30, one approved statement per migration; `supabase db push` refuses because the history of the shared project holds a version of the other application |
+| 4 | Check the running version-1 site on the migrated database — done, all pages answer |
 | 5 | Mark the pull request as ready and merge to `main`, which deploys |
 | 6 | Run the checks after the deployment ([deployment, section 6](PWANOVA_V2_DEPLOYMENT.md)) |
 | 7 | Enter the operator's details in Admin → Settings; have the legal texts checked by a lawyer |
