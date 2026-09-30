@@ -7,14 +7,16 @@ import { clientIp, rateLimit } from "@/lib/security/rate-limit"
 import { classifyTraffic } from "@/lib/traffic"
 import { isSupabaseConfigured, siteUrl } from "@/lib/env"
 import { readJsonBody } from "@/lib/security/json-body"
-import { PARTNER_COOKIE } from "@/lib/constants"
+import { isLocale } from "@/i18n/config"
 
-const CLIENT_EVENTS = ["view", "open_app", "install_click", "install_instruction_view", "share"] as const
+const CLIENT_EVENTS = ["view", "open_app", "install_click", "install_instruction_view", "share", "compare_added", "launch_view"] as const
 const schema = z.object({
   appId: z.string().uuid(),
   type: z.enum(CLIENT_EVENTS),
   from: z.string().max(20).nullish(),
   referrer: z.string().max(500).nullish(),
+  locale: z.string().max(5).nullish(),
+  ref: z.string().regex(/^[a-z0-9_-]{2,40}$/).nullish(),
 })
 
 /**
@@ -31,17 +33,22 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid event" }, { status: 400 })
   if (!(await rateLimit(`events:${await clientIp()}`, 120, 60))) return NextResponse.json({ error: "Rate limited" }, { status: 429 })
 
-  if (!(await rateLimit(`event-dedupe:${await clientIp()}:${parsed.data.appId}:${parsed.data.type}`, 1, 30))) return new NextResponse(null, { status: 204 })
-  const ref = req.cookies.get(PARTNER_COOKIE)?.value
+  // One page view per visitor, app and half hour; one of every other action per 30 seconds. The key is a
+  // salted hash of the address that changes every day, so nothing here identifies a person later.
+  const window = parsed.data.type === "view" || parsed.data.type === "launch_view" ? 1800 : 30
+  if (!(await rateLimit(`event-dedupe:${await clientIp()}:${parsed.data.appId}:${parsed.data.type}`, 1, window))) return new NextResponse(null, { status: 204 })
+  const ref = parsed.data.ref
   let partnerId: string | null = null
   if (ref) {
     const admin = createAdminClient()
-    const { data } = await admin?.from("partners").select("id").eq("status", "active").eq("is_demo", false).or(`slug.eq.${ref.replace(/[^a-z0-9_-]/g, "")},referral_code.eq.${ref.replace(/[^a-z0-9_-]/g, "")}`).limit(1).maybeSingle() ?? { data: null }
+    const { data } = await admin?.from("partners").select("id").eq("status", "active").eq("is_demo", false).or(`slug.eq.${ref},referral_code.eq.${ref}`).limit(1).maybeSingle() ?? { data: null }
     partnerId = data?.id ?? null
   }
   const source = classifyTraffic({ from: parsed.data.from, referrer: parsed.data.referrer, hasPartner: Boolean(partnerId), siteHost: new URL(siteUrl).hostname })
   const sb = await createClient()
   const { data: { user } } = await sb.auth.getUser()
-  await recordEvent({ appId: parsed.data.appId, type: parsed.data.type, userId: user?.id, source, partnerId })
+  // The language edition is the only thing kept about the visitor: it feeds "popular in the German edition".
+  const locale = isLocale(parsed.data.locale) ? parsed.data.locale : null
+  await recordEvent({ appId: parsed.data.appId, type: parsed.data.type, userId: user?.id, source, partnerId, metadata: locale ? { locale } : {} })
   return new NextResponse(null, { status: 204 })
 }

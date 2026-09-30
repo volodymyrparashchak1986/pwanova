@@ -4,6 +4,9 @@ import { useState } from "react"
 import { Loader2, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useI18n } from "@/i18n/client"
+import { fmt } from "@/i18n/format"
+import { NEXT_COOKIE } from "@/lib/safe-next"
 import { createClient } from "@/lib/supabase/browser"
 
 const GoogleIcon = () => (
@@ -14,34 +17,43 @@ const GitHubIcon = () => (
 )
 
 export function SignInForm({ next }: { next: string }) {
+  const { t } = useI18n()
   const [email, setEmail] = useState("")
   const [state, setState] = useState<"idle" | "loading" | "sent" | "error">("idle")
   const [message, setMessage] = useState("")
-  const redirectTo = () => `${location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+  /**
+   * The address the sign-in provider returns to has to match the allow-list exactly, so it carries no
+   * parameters. Where to go afterwards is kept for a quarter of an hour in a cookie that exists only
+   * for this sign-in and is removed by the callback.
+   */
+  const redirectTo = () => {
+    document.cookie = `${NEXT_COOKIE}=${encodeURIComponent(next)}; Max-Age=900; Path=/; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`
+    return `${location.origin}/auth/callback`
+  }
 
   async function oauth(provider: "google" | "github") {
     setState("loading")
     const { error } = await createClient().auth.signInWithOAuth({ provider, options: { redirectTo: redirectTo() } })
-    if (error) { setState("error"); setMessage(error.message) }
+    if (error) { setState("error"); setMessage(t.auth.error) }
   }
   async function magic(e: React.FormEvent) {
     e.preventDefault()
     setState("loading")
     const { error } = await createClient().auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo() } })
-    if (error) { setState("error"); setMessage(error.message) } else setState("sent")
+    if (error) { setState("error"); setMessage(t.auth.error) } else setState("sent")
   }
 
   return (
     <div className="space-y-3">
-      {process.env.NEXT_PUBLIC_AUTH_GOOGLE === "true" && <Button variant="outline" size="lg" className="w-full" onClick={() => oauth("google")} disabled={state === "loading"}><GoogleIcon />Continue with Google</Button>}
-      {process.env.NEXT_PUBLIC_AUTH_GITHUB === "true" && <Button variant="outline" size="lg" className="w-full" onClick={() => oauth("github")} disabled={state === "loading"}><GitHubIcon />Continue with GitHub</Button>}
-      <div className="flex items-center gap-3 py-2 text-xs text-muted-foreground"><span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" /></div>
+      {process.env.NEXT_PUBLIC_AUTH_GOOGLE === "true" && <Button variant="outline" size="lg" className="w-full" onClick={() => oauth("google")} disabled={state === "loading"}><GoogleIcon />{t.auth.google}</Button>}
+      {process.env.NEXT_PUBLIC_AUTH_GITHUB === "true" && <Button variant="outline" size="lg" className="w-full" onClick={() => oauth("github")} disabled={state === "loading"}><GitHubIcon />{t.auth.github}</Button>}
+      <div className="flex items-center gap-3 py-2 text-xs text-muted-foreground"><span className="h-px flex-1 bg-border" />{t.auth.or}<span className="h-px flex-1 bg-border" /></div>
       {state === "sent" ? (
-        <p role="status" className="rounded-2xl bg-ok/10 p-4 text-sm">Check <strong>{email}</strong> for your magic link.</p>
+        <p role="status" className="rounded-2xl bg-ok/10 p-4 text-sm">{fmt(t.auth.sent, { email })}</p>
       ) : (
         <form onSubmit={magic} className="space-y-3">
-          <Input type="email" maxLength={254} required placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" className="h-12 rounded-xl px-4 text-base" />
-          <Button type="submit" size="lg" className="w-full" disabled={state === "loading"}>{state === "loading" ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}Email me a magic link</Button>
+          <Input type="email" maxLength={254} required placeholder={t.auth.emailPlaceholder} aria-label={t.common.emailField} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" className="h-12 rounded-xl px-4 text-base" />
+          <Button type="submit" size="lg" className="w-full" disabled={state === "loading"}>{state === "loading" ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}{t.auth.magic}</Button>
         </form>
       )}
       {state === "error" && <p role="alert" className="text-sm text-destructive">{message}</p>}

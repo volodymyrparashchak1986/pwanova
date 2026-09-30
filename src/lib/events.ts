@@ -1,6 +1,7 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { EventType } from "@/lib/constants"
+import { asJson } from "@/lib/supabase/rpc"
 
 /**
  * Event ingestion runs with the service role so anonymous visitors can never write
@@ -28,6 +29,6 @@ export async function recordEvent(input: {
     event_type: input.type,
     source: input.source ?? "direct",
     partner_id: input.partnerId ?? null,
-    metadata: input.metadata ?? {},
+    metadata: asJson(input.metadata ?? {}),
   })
 }

@@ -1,4 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { DEFAULT_LOCALE, isLocale } from "@/i18n/config"
+import { dictionaries } from "@/i18n/dictionaries"
+import { plural } from "@/i18n/format"
 import { getAppBySlug } from "@/lib/data"
 import { badgeNotFoundSvg, badgeSvg } from "@/lib/badge-svg"
 import { exampleApp, isExampleSlug } from "@/lib/partner-example"
@@ -16,6 +19,9 @@ const CORS = { "access-control-allow-origin": "*" }
 export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const dark = req.nextUrl.searchParams.get("theme") === "dark"
+  const lang = req.nextUrl.searchParams.get("lang")
+  const locale = isLocale(lang) ? lang : DEFAULT_LOCALE
+  const t = dictionaries[locale]
   if (!(await rateLimit(`badge:${await clientIp()}`, 120, 60))) {
     return new NextResponse(badgeNotFoundSvg(dark), { status: 429, headers: { ...CORS, "content-type": "image/svg+xml", "cache-control": "no-store" } })
   }
@@ -25,9 +31,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     return new NextResponse(badgeNotFoundSvg(dark), { status: 404, headers: { ...CORS, "content-type": "image/svg+xml", "cache-control": "no-store" } })
   }
   const body = badgeSvg({
-    title: app.ratingsCount ? `${app.rating.toFixed(1)} ★ · ${app.ratingsCount} ratings` : "View on PWANova",
+    title: app.ratingsCount
+      ? `${new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(app.rating)} ★ · ${plural(locale, app.ratingsCount, t.card.ratings)}`
+      : t.partners.kit.viewOn,
     subtitle: app.name,
-    verified: app.verificationStatus === "verified",
+    verified: app.ownershipStatus === "verified_owner",
     demo: app.isDemo,
     dark,
   })

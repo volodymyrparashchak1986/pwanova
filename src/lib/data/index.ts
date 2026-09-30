@@ -86,7 +86,7 @@ export const getAppBySlug = cache(async (slug: string): Promise<AppView | null> 
   if (!isSupabaseConfigured) return demoMode ? demo().apps.find((a) => a.slug === slug) ?? null : null
   const sb = await createClient()
   const { data } = await sb.from("apps_public").select("*").eq("slug", slug).maybeSingle()
-  if (!data || (data.is_demo && !showDemoData)) return null
+  if (!data?.id || (data.is_demo && !showDemoData)) return null
   const { data: shots } = await sb.from("app_screenshots").select("image_url").eq("app_id", data.id).order("sort_order")
   return mapApp(data, (shots ?? []).map((s: Row) => s.image_url))
 })
@@ -112,7 +112,10 @@ export async function getCategoryCounts(): Promise<Record<string, number>> {
   return out
 }
 
-export async function getRatingBreakdown(app: AppView): Promise<RatingBreakdown> {
+/** The part of a listing that ratings and reviews need. Both the v1 and the V2 read model have it. */
+export interface ReviewTarget { id: string; isDemo: boolean; rating: number; ratingsCount: number; developer: { id: string | null } }
+
+export async function getRatingBreakdown(app: ReviewTarget): Promise<RatingBreakdown> {
   if (!isSupabaseConfigured) return demoBreakdown(app.id)
   const sb = await createClient()
   const { data } = await sb.rpc("rating_breakdown", { p_app_id: app.id })
@@ -139,7 +142,7 @@ function mapReview(r: Row, mine: Set<string> = new Set()): ReviewView {
 }
 
 // ------------------------------------------------------------------ reviews
-export async function getReviews(app: AppView, viewerId?: string | null): Promise<ReviewView[]> {
+export async function getReviews(app: ReviewTarget, viewerId?: string | null): Promise<ReviewView[]> {
   if (!isSupabaseConfigured) {
     if (!demoMode) return []
     return [...(demo().reviews.get(app.id) ?? [])].sort((a, b) => b.helpfulCount - a.helpfulCount)
@@ -225,7 +228,7 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
   const { data: p } = await sb.from("profiles").select("*").eq("id", user.id).maybeSingle()
   return {
     id: user.id, email: user.email ?? null, username: p?.username ?? "user",
-    displayName: p?.display_name ?? p?.username ?? "You", avatarUrl: p?.avatar_url ?? null, role: p?.role ?? "user",
+    displayName: p?.display_name ?? p?.username ?? "You", avatarUrl: p?.avatar_url ?? null, role: (p?.role ?? "user") as Viewer["role"],
   }
 })
 
@@ -256,7 +259,7 @@ export async function getOwnedAppBySlug(slug: string, userId: string): Promise<O
   if (!isSupabaseConfigured) return null
   const sb = await createClient()
   const { data } = await sb.from("apps").select("id, slug, name, url, domain, icon_url, status, ownership_status, developer_id, moderation_note").eq("slug", slug).eq("developer_id", userId).maybeSingle()
-  return data ? { url: data.url, id: data.id, slug: data.slug, name: data.name, domain: data.domain, iconUrl: data.icon_url, status: data.status, ownershipStatus: data.ownership_status, ownerId: data.developer_id, moderationNote: data.moderation_note } : null
+  return data ? { url: data.url, id: data.id, slug: data.slug, name: data.name, domain: data.domain, iconUrl: data.icon_url, status: data.status, ownershipStatus: data.ownership_status as AppView["ownershipStatus"], ownerId: data.developer_id ?? userId, moderationNote: data.moderation_note } : null
 }
 
 export async function getDashboard(days: 7 | 30 = 30): Promise<DashboardData> {
@@ -267,7 +270,7 @@ export async function getDashboard(days: 7 | 30 = 30): Promise<DashboardData> {
   if (error || !data) {
     return { totals: { views: 0, opens: 0, installActions: 0, favorites: 0, ratings: 0, reviews: 0, averageRating: 0 }, series: [], trafficSources: [], launchSources: [], topApps: [] }
   }
-  return data as DashboardData
+  return data as unknown as DashboardData
 }
 
 export async function getActivity(userId: string) {
